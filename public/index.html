@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniMercado - Leitor CSV</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page__header">
+        <div>
+          <p class="page__eyebrow">MiniMercado Tools</p>
+          <h1>Leitor de CSV de produtos</h1>
+          <p class="page__subtitle">
+            Carregue um arquivo CSV com o cabeçalho esperado e filtre os itens
+            pela coluna <strong>Descrição</strong>.
+          </p>
+        </div>
+        <div class="page__actions">
+          <label class="file-input" for="csvFile">
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+            <span>Escolher arquivo CSV</span>
+          </label>
+        </div>
+      </header>
+
+      <section class="controls">
+        <div class="control">
+          <label for="searchInput">Buscar pela descrição</label>
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Ex.: Arroz, Leite..."
+            disabled
+          />
+        </div>
+        <div class="control control--summary">
+          <span class="summary" id="resultSummary">Nenhum arquivo carregado</span>
+          <span class="summary" id="filteredSummary">0 itens</span>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <div class="table-card__header">
+          <h2>Itens encontrados</h2>
+          <p class="table-card__hint">
+            A tabela mostra todas as colunas presentes no CSV.
+          </p>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <template id="emptyState">
+      <tr>
+        <td class="empty" colspan="12">
+          Carregue um CSV para visualizar os itens.
+        </td>
+      </tr>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
