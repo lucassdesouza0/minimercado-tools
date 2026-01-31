@@ -11,16 +11,16 @@
       <header class="page__header">
         <div>
           <p class="page__eyebrow">MiniMercado Tools</p>
-          <h1>Leitor de CSV de produtos</h1>
+          <h1>Leitor de CSV e Excel de produtos</h1>
           <p class="page__subtitle">
-            Carregue um arquivo CSV com o cabeçalho esperado e filtre os itens
-            pela coluna <strong>Descrição</strong>.
+            Carregue um arquivo CSV ou XLSX com o cabeçalho esperado e filtre os
+            itens pela coluna <strong>Descrição</strong>.
           </p>
         </div>
         <div class="page__actions">
           <label class="file-input" for="csvFile">
-            <input id="csvFile" type="file" accept=".csv,text/csv" />
-            <span>Escolher arquivo CSV</span>
+            <input id="csvFile" type="file" accept=".csv,.xlsx" />
+            <span>Escolher arquivo CSV ou XLSX</span>
           </label>
         </div>
       </header>
@@ -35,6 +35,12 @@
             disabled
           />
         </div>
+        <div class="control" id="sheetControl" hidden>
+          <label for="sheetSelect">Aba da planilha</label>
+          <select id="sheetSelect" disabled>
+            <option value="">Selecione uma aba</option>
+          </select>
+        </div>
         <div class="control control--summary">
           <span class="summary" id="resultSummary">Nenhum arquivo carregado</span>
           <span class="summary" id="filteredSummary">0 itens</span>
@@ -45,7 +51,7 @@
         <div class="table-card__header">
           <h2>Itens encontrados</h2>
           <p class="table-card__hint">
-            A tabela mostra todas as colunas presentes no CSV.
+            A tabela mostra todas as colunas presentes no arquivo carregado.
           </p>
         </div>
         <div class="table-wrapper">
@@ -60,11 +66,16 @@
     <template id="emptyState">
       <tr>
         <td class="empty" colspan="12">
-          Carregue um CSV para visualizar os itens.
+          Carregue um arquivo para visualizar os itens.
         </td>
       </tr>
     </template>
 
+    <script
+      src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+      integrity="sha384-4LuSABMZBh6gZt5m6n01XQGH5gcmQyCnRE9h8P71pB2mJkwi5XIDcdZ0D0XRbINy"
+      crossorigin="anonymous"
+    ></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -93,7 +93,7 @@ body {
   flex-direction: column;
   gap: 8px;
   flex: 1;
-  min-width: 240px;
+  min-width: 220px;
 }
 
 .control label {
@@ -101,14 +101,17 @@ body {
   color: #2b3245;
 }
 
-.control input {
+.control input,
+.control select {
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid #cfd5e6;
   font-size: 15px;
+  background: #fff;
 }
 
-.control input:disabled {
+.control input:disabled,
+.control select:disabled {
   background: #eceff5;
 }
 
@@ -167,6 +170,8 @@ table {
   border-collapse: collapse;
   width: 100%;
   min-width: 800px;
+  border: 1px solid #e5e9f5;
+  background: #fff;
 }
 
 th,
@@ -174,6 +179,7 @@ td {
   padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid #edf0f7;
+  border-right: 1px solid #edf0f7;
   font-size: 14px;
 }
 
@@ -183,6 +189,11 @@ th {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+tr > th:last-child,
+tr > td:last-child {
+  border-right: none;
 }
 
 tbody tr:hover {
