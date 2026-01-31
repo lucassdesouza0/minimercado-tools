@@ -16,12 +16,18 @@ const sanitizeHeader = (header) => header.replace(/\s+/g, " ").trim();
 
 const normalizeRows = (rawHeaders, dataRows) => {
   headers = rawHeaders.map(sanitizeHeader);
-  parsedRows = dataRows.map((row) =>
-    headers.reduce((acc, header) => {
-      acc[header] = row[header] ?? "";
+  parsedRows = dataRows.map((row) => {
+    const data = headers.reduce((acc, header, index) => {
+      const originalHeader = rawHeaders[index];
+      acc[header] = row?.[originalHeader] ?? row?.[header] ?? "";
       return acc;
-    }, {})
-  );
+    }, {});
+
+    return {
+      data,
+      values: headers.map((header) => data[header] ?? ""),
+    };
+  });
 };
 
 const parseCsv = (content) => {
@@ -134,11 +140,10 @@ const handleCsvFile = (file) => {
   reader.onload = (loadEvent) => {
     const content = String(loadEvent.target.result || "");
     const parsed = parseCsv(content);
-    headers = parsed.headers.map(sanitizeHeader);
-    parsedRows = parsed.rows.map((row) => ({
-      values: row.values,
-      data: row.data,
-    }));
+    normalizeRows(
+      parsed.headers,
+      parsed.rows.map((row) => row.data)
+    );
 
     resetSheetSelector();
     searchInput.disabled = parsedRows.length === 0;
