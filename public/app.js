@@ -94,7 +94,7 @@ const renderCards = (data) => {
   data.forEach((row) => {
     const description =
       getValueFromRow(row, ["Descrição", "Descricao"]) || "—";
-    const cost = getValueFromRow(row, ["Custo"]) || "—";
+    const cost = getValueFromRow(row, ["Custo"]) || getValueFromRow(row, ["Custo da última compra"]) || "—";
     const averageCost =
       getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio"]) ||
       "—";
