@@ -9,10 +9,247 @@ const emptyState = document.getElementById("emptyState");
 const emptyStateCards = document.getElementById("emptyStateCards");
 const sheetControl = document.getElementById("sheetControl");
 const sheetSelect = document.getElementById("sheetSelect");
+const googleFileControl = document.getElementById("googleFileControl");
+const googleFileSelect = document.getElementById("googleFileSelect");
+const googleStatus = document.getElementById("googleStatus");
 
 let parsedRows = [];
 let headers = [];
 let workbook = null;
+let googleAuth = null;
+let googleFiles = [];
+let currentGoogleSheetId = null;
+
+// ========================
+// Google Sheets Integration
+// ========================
+
+const initGoogle = async () => {
+  // Load Google API client library
+  return new Promise((resolve) => {
+    gapi.load("client", async () => {
+      try {
+        await gapi.client.init({
+          apiKey: GOOGLE_CONFIG.API_KEY,
+          discoveryDocs: [
+            "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+            "https://www.googleapis.com/discovery/v1/apis/sheets/v4/rest",
+          ],
+        });
+        resolve(true);
+      } catch (error) {
+        console.error("Failed to initialize Google API:", error);
+        resolve(false);
+      }
+    });
+  });
+};
+
+const initGoogleAuth = () => {
+  const client = google.accounts.id;
+  client.initialize({
+    client_id: GOOGLE_CONFIG.CLIENT_ID,
+    callback: handleCredentialResponse,
+    scopes: GOOGLE_CONFIG.SCOPES.join(" "),
+  });
+
+  client.renderButton(
+    document.getElementById("buttonDiv"),
+    {
+      theme: "outline",
+      size: "large",
+      text: "signin",
+    }
+  );
+};
+
+const handleCredentialResponse = async (response) => {
+  // Store the token
+  const token = response.credential;
+
+  // Use the token with Google API
+  try {
+    // Exchange credential for access token
+    const authResult = await gapi.auth2.authorize({
+      client_id: GOOGLE_CONFIG.CLIENT_ID,
+      scope: GOOGLE_CONFIG.SCOPES.join(" "),
+      redirect_uri: window.location.origin,
+    });
+
+    googleAuth = authResult;
+    updateGoogleStatus(true, response.name || "Usuário");
+    await loadGoogleFiles();
+  } catch (error) {
+    // Fallback: use the credential as is for some operations
+    console.log("Using credential token for API calls");
+    googleAuth = { credential: token };
+    updateGoogleStatus(true, "Usuário");
+    await loadGoogleFiles();
+  }
+};
+
+const updateGoogleStatus = (isLoggedIn, userName = null) => {
+  if (isLoggedIn) {
+    googleStatus.textContent = `Conectado como ${userName || "Usuário"}`;
+    googleStatus.style.color = "#4CAF50";
+    googleFileControl.hidden = false;
+  } else {
+    googleStatus.textContent = "Desconectado";
+    googleStatus.style.color = "#666";
+    googleFileControl.hidden = true;
+  }
+};
+
+const loadGoogleFiles = async () => {
+  if (!GOOGLE_CONFIG.FOLDER_ID) {
+    console.error("FOLDER_ID not configured in config.js");
+    alert("Configure FOLDER_ID em config.js");
+    return;
+  }
+
+  try {
+    googleFileSelect.innerHTML = '<option value="">Carregando arquivos...</option>';
+    googleFileSelect.disabled = true;
+
+    const response = await gapi.client.drive.files.list({
+      q: `'${GOOGLE_CONFIG.FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+      spaces: "drive",
+      fields: "files(id, name, modifiedTime)",
+      orderBy: "modifiedTime desc",
+      pageSize: 50,
+    });
+
+    googleFiles = response.result.files || [];
+
+    if (googleFiles.length === 0) {
+      googleFileSelect.innerHTML =
+        '<option value="">Nenhuma planilha encontrada</option>';
+      googleFileSelect.disabled = true;
+      return;
+    }
+
+    googleFileSelect.innerHTML = '<option value="">Selecione uma planilha...</option>';
+    googleFiles.forEach((file) => {
+      const option = document.createElement("option");
+      option.value = file.id;
+      option.textContent = file.name;
+      googleFileSelect.appendChild(option);
+    });
+
+    googleFileSelect.disabled = false;
+  } catch (error) {
+    console.error("Error loading Google files:", error);
+    googleFileSelect.innerHTML =
+      '<option value="">Erro ao carregar arquivos</option>';
+    googleFileSelect.disabled = true;
+    alert("Erro ao carregar arquivos do Google Drive. Verifique suas credenciais.");
+  }
+};
+
+const loadGoogleSheet = async (fileId, sheetName = null) => {
+  if (!fileId) return;
+
+  try {
+    googleFileSelect.disabled = true;
+
+    const response = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: fileId,
+      fields: "sheets(properties(sheetId,title))",
+    });
+
+    const sheets = response.result.sheets || [];
+    const targetSheet = sheetName || sheets[0]?.properties?.title;
+
+    if (!targetSheet) {
+      alert("Nenhuma aba encontrada na planilha");
+      return;
+    }
+
+    currentGoogleSheetId = fileId;
+
+    // Populate sheet selector if multiple sheets
+    if (sheets.length > 1) {
+      sheetControl.hidden = false;
+      sheetSelect.innerHTML = '<option value="">Selecione uma aba</option>';
+      sheets.forEach((sheet) => {
+        const option = document.createElement("option");
+        option.value = sheet.properties.title;
+        option.textContent = sheet.properties.title;
+        sheetSelect.appendChild(option);
+      });
+      sheetSelect.disabled = false;
+      sheetSelect.value = targetSheet;
+    } else {
+      resetSheetSelector();
+    }
+
+    // Load sheet data
+    await loadGoogleSheetData(fileId, targetSheet);
+    googleFileSelect.disabled = false;
+  } catch (error) {
+    console.error("Error loading Google sheet:", error);
+    alert("Erro ao carregar a planilha. Verifique as permissões.");
+    googleFileSelect.disabled = false;
+  }
+};
+
+const loadGoogleSheetData = async (fileId, sheetName) => {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: fileId,
+      range: `'${sheetName}'`,
+    });
+
+    const values = response.result.values || [];
+
+    if (values.length === 0) {
+      normalizeRows([], []);
+      renderTable([]);
+      updateSummary(0, 0);
+      return;
+    }
+
+    const [headerRow, ...dataRows] = values;
+    const rawHeaders = headerRow.map(sanitizeHeader);
+
+    // Convert array format to object format
+    const jsonRows = dataRows.map((row) => {
+      return rawHeaders.reduce((acc, header, index) => {
+        acc[header] = row[index] || "";
+        return acc;
+      }, {});
+    });
+
+    normalizeRows(rawHeaders, jsonRows);
+    searchInput.disabled = parsedRows.length === 0;
+    searchInput.value = "";
+    renderTable(parsedRows);
+    updateSummary(parsedRows.length, parsedRows.length);
+  } catch (error) {
+    console.error("Error loading Google sheet data:", error);
+    alert("Erro ao carregar dados da planilha.");
+  }
+};
+
+// Initialize Google Auth when page loads (if using Google Sign-In library v3)
+const initializeGoogleIntegration = async () => {
+  try {
+    // Check if we can use the new Google Identity Services
+    if (typeof google !== "undefined" && google.accounts) {
+      initGoogleAuth();
+    } else {
+      console.warn("Google Identity Services not loaded");
+    }
+
+    // Initialize Google API client
+    const apiReady = await initGoogle();
+    if (!apiReady) {
+      console.error("Google API client initialization failed");
+    }
+  } catch (error) {
+    console.error("Error initializing Google integration:", error);
+  }
+};
 
 const sanitizeHeader = (header) => header.replace(/\s+/g, " ").trim();
 
@@ -274,9 +511,26 @@ csvInput.addEventListener("change", (event) => {
 });
 
 sheetSelect.addEventListener("change", () => {
-  loadSheet(sheetSelect.value);
+  if (currentGoogleSheetId) {
+    loadGoogleSheetData(currentGoogleSheetId, sheetSelect.value);
+  } else {
+    loadSheet(sheetSelect.value);
+  }
+});
+
+googleFileSelect.addEventListener("change", () => {
+  if (googleFileSelect.value) {
+    loadGoogleSheet(googleFileSelect.value);
+  }
 });
 
 searchInput.addEventListener("input", filterRows);
 
 renderTable([]);
+
+// Initialize Google integration when page loads
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeGoogleIntegration);
+} else {
+  initializeGoogleIntegration();
+}

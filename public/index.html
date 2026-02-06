@@ -5,19 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MiniMercado - Leitor CSV</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <main class="page">
       <header class="page__header">
         <div>
           <p class="page__eyebrow">MiniMercado Tools</p>
-          <h1>Leitor de CSV e Excel de produtos</h1>
+          <h1>Leitor de CSV, Excel e Google Sheets de produtos</h1>
           <p class="page__subtitle">
-            Carregue um arquivo CSV ou XLSX com o cabeçalho esperado e filtre os
+            Carregue um arquivo CSV, XLSX ou Google Sheet com o cabeçalho esperado e filtre os
             itens pela coluna <strong>Descrição</strong>.
           </p>
         </div>
         <div class="page__actions">
+          <div id="googleAuthContainer" style="display: flex; gap: 10px; align-items: center;">
+            <div id="buttonDiv"></div>
+            <div id="googleStatus" style="font-size: 0.9em; color: #666;">Desconectado</div>
+          </div>
           <label class="file-input" for="csvFile">
             <input id="csvFile" type="file" accept=".csv,.xlsx" />
             <span>Escolher arquivo CSV ou XLSX</span>
@@ -26,6 +31,12 @@
       </header>
 
       <section class="controls">
+        <div class="control" id="googleFileControl" hidden>
+          <label for="googleFileSelect">Planilha do Google Drive</label>
+          <select id="googleFileSelect" disabled>
+            <option value="">Carregando arquivos...</option>
+          </select>
+        </div>
         <div class="control">
           <label for="searchInput">Buscar pela descrição</label>
           <input
@@ -88,6 +99,8 @@
     <script
       src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
     ></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
