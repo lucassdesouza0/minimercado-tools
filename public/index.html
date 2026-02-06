@@ -61,6 +61,16 @@
           </table>
         </div>
       </section>
+
+      <section class="mobile-cards" aria-live="polite">
+        <div class="mobile-cards__header">
+          <h2>Itens encontrados</h2>
+          <p class="mobile-cards__hint">
+            Visualização otimizada para celular com foco em Descrição e custos.
+          </p>
+        </div>
+        <div class="mobile-cards__list" id="cardList"></div>
+      </section>
     </main>
 
     <template id="emptyState">
@@ -69,6 +79,10 @@
           Carregue um arquivo para visualizar os itens.
         </td>
       </tr>
+    </template>
+
+    <template id="emptyStateCards">
+      <div class="card-empty">Carregue um arquivo para visualizar os itens.</div>
     </template>
 
     <script

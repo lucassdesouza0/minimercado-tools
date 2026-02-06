@@ -2,9 +2,11 @@ const csvInput = document.getElementById("csvFile");
 const searchInput = document.getElementById("searchInput");
 const tableHead = document.getElementById("tableHead");
 const tableBody = document.getElementById("tableBody");
+const cardList = document.getElementById("cardList");
 const resultSummary = document.getElementById("resultSummary");
 const filteredSummary = document.getElementById("filteredSummary");
 const emptyState = document.getElementById("emptyState");
+const emptyStateCards = document.getElementById("emptyStateCards");
 const sheetControl = document.getElementById("sheetControl");
 const sheetSelect = document.getElementById("sheetSelect");
 
@@ -13,6 +15,32 @@ let headers = [];
 let workbook = null;
 
 const sanitizeHeader = (header) => header.replace(/\s+/g, " ").trim();
+
+const normalizeKey = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_]+/g, "");
+
+const getValueFromRow = (row, candidateKeys) => {
+  const data = row?.data || {};
+  const dataKeys = Object.keys(data);
+  const normalizedMap = dataKeys.reduce((acc, key) => {
+    acc[normalizeKey(key)] = key;
+    return acc;
+  }, {});
+
+  for (const key of candidateKeys) {
+    const normalizedKey = normalizeKey(key);
+    const originalKey = normalizedMap[normalizedKey];
+    if (originalKey) {
+      return data[originalKey];
+    }
+  }
+
+  return "";
+};
 
 const normalizeRows = (rawHeaders, dataRows) => {
   headers = rawHeaders.map(sanitizeHeader);
@@ -55,12 +83,53 @@ const parseCsv = (content) => {
   return { headers: rawHeaders, rows: dataRows };
 };
 
+const renderCards = (data) => {
+  cardList.innerHTML = "";
+
+  if (!data.length) {
+    cardList.appendChild(emptyStateCards.content.cloneNode(true));
+    return;
+  }
+
+  data.forEach((row) => {
+    const description =
+      getValueFromRow(row, ["Descrição", "Descricao"]) || "—";
+    const cost = getValueFromRow(row, ["Custo"]) || "—";
+    const averageCost =
+      getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio"]) ||
+      "—";
+
+    const card = document.createElement("article");
+    card.className = "mobile-card";
+
+    card.innerHTML = `
+      <div class="mobile-card__main">
+        <span class="mobile-card__label">Descrição</span>
+        <p class="mobile-card__value">${description}</p>
+      </div>
+      <div class="mobile-card__meta">
+        <div>
+          <span class="mobile-card__label">Custo</span>
+          <p class="mobile-card__value mobile-card__value--emphasis">${cost}</p>
+        </div>
+        <div>
+          <span class="mobile-card__label">Custo médio</span>
+          <p class="mobile-card__value">${averageCost}</p>
+        </div>
+      </div>
+    `;
+
+    cardList.appendChild(card);
+  });
+};
+
 const renderTable = (data) => {
   tableHead.innerHTML = "";
   tableBody.innerHTML = "";
 
   if (!data.length || !headers.length) {
     tableBody.appendChild(emptyState.content.cloneNode(true));
+    renderCards([]);
     return;
   }
 
@@ -81,6 +150,8 @@ const renderTable = (data) => {
     });
     tableBody.appendChild(tr);
   });
+
+  renderCards(data);
 };
 
 const updateSummary = (total, filtered) => {

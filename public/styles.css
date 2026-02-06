@@ -144,6 +144,83 @@ body {
   box-shadow: 0 16px 40px rgba(27, 33, 52, 0.08);
 }
 
+.mobile-cards {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 16px 40px rgba(27, 33, 52, 0.08);
+}
+
+.mobile-cards__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-cards__header h2 {
+  margin: 0;
+}
+
+.mobile-cards__hint {
+  margin: 0;
+  color: #6b7283;
+  font-size: 14px;
+}
+
+.mobile-cards__list {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #e3e7f2;
+  background: #f8faff;
+}
+
+.mobile-card__main,
+.mobile-card__meta {
+  display: grid;
+  gap: 8px;
+}
+
+.mobile-card__meta {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.mobile-card__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7283;
+}
+
+.mobile-card__value {
+  margin: 0;
+  font-size: 16px;
+  color: #1c1f2a;
+  font-weight: 600;
+}
+
+.mobile-card__value--emphasis {
+  color: #3845a1;
+}
+
+.card-empty {
+  text-align: center;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px dashed #d6dbe9;
+  color: #6b7283;
+  background: #f7f9ff;
+}
+
 .table-card__header {
   display: flex;
   flex-direction: column;
@@ -239,5 +316,13 @@ tbody tr:hover {
 
   .control--summary {
     width: 100%;
+  }
+
+  .table-card {
+    display: none;
+  }
+
+  .mobile-cards {
+    display: flex;
   }
 }
