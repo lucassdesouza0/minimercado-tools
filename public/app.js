@@ -1,12 +1,12 @@
 const csvInput = document.getElementById("csvFile");
 const searchInput = document.getElementById("searchInput");
-const tableHead = document.getElementById("tableHead");
-const tableBody = document.getElementById("tableBody");
+const tableHead = null; // No longer used
+const tableBody = null; // No longer used
 const cardList = document.getElementById("cardList");
 const resultSummary = document.getElementById("resultSummary");
 const filteredSummary = document.getElementById("filteredSummary");
-const emptyState = document.getElementById("emptyState");
-const emptyStateCards = document.getElementById("emptyStateCards");
+const emptyState = null; // No longer used
+const emptyStateCards = null; // No longer used
 const sheetControl = document.getElementById("sheetControl");
 const sheetSelect = document.getElementById("sheetSelect");
 const googleFileControl = document.getElementById("googleFileControl");
@@ -19,6 +19,61 @@ let workbook = null;
 let googleAuth = null;
 let googleFiles = [];
 let currentGoogleSheetId = null;
+let allSheetsData = {}; // Store data for all sheets
+let currentSheetName = null; // Track current sheet
+
+// ========================
+// LocalStorage Management
+// ========================
+
+const STORAGE_KEY = "minimercado_spreadsheet_data";
+
+const saveToLocalStorage = () => {
+  const data = {
+    headers,
+    rows: parsedRows,
+    allSheetsData,
+    currentSheetName,
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    console.log("Data saved to localStorage");
+  } catch (error) {
+    console.error("Failed to save to localStorage:", error);
+  }
+};
+
+const loadFromLocalStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      headers = data.headers || [];
+      parsedRows = data.rows || [];
+      allSheetsData = data.allSheetsData || {};
+      currentSheetName = data.currentSheetName || null;
+      console.log("Data restored from localStorage");
+      return true;
+    }
+  } catch (error) {
+    console.error("Failed to load from localStorage:", error);
+  }
+  return false;
+};
+
+const clearLocalStorage = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    headers = [];
+    parsedRows = [];
+    allSheetsData = {};
+    currentSheetName = null;
+    console.log("localStorage cleared");
+  } catch (error) {
+    console.error("Failed to clear localStorage:", error);
+  }
+};
 
 // ========================
 // Google Sheets Integration
@@ -272,7 +327,7 @@ const getValueFromRow = (row, candidateKeys) => {
     const normalizedKey = normalizeKey(key);
     const originalKey = normalizedMap[normalizedKey];
     if (originalKey) {
-      return data[originalKey];
+      return String(data[originalKey] || "");
     }
   }
 
@@ -324,16 +379,22 @@ const renderCards = (data) => {
   cardList.innerHTML = "";
 
   if (!data.length) {
-    cardList.appendChild(emptyStateCards.content.cloneNode(true));
+    cardList.innerHTML = '<div class="card-empty">Carregue um arquivo para visualizar os itens.</div>';
     return;
   }
 
   data.forEach((row) => {
     const description =
       getValueFromRow(row, ["Descrição", "Descricao"]) || "—";
-    const cost = getValueFromRow(row, ["Custo"]) || getValueFromRow(row, ["Custo da última compra"]) || "—";
+    const cost = 
+      getValueFromRow(row, ["Custo", "CUSTO", "Custo Unitário"]) || 
+      getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) || 
+      "—";
     const averageCost =
-      getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio"]) ||
+      getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio", "CUSTO_MEDIO_AJUSTADO"]) ||
+      "—";
+    const stock =
+      getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
       "—";
 
     const card = document.createElement("article");
@@ -350,8 +411,12 @@ const renderCards = (data) => {
           <p class="mobile-card__value mobile-card__value--emphasis">${cost}</p>
         </div>
         <div>
-          <span class="mobile-card__label">Custo médio</span>
+          <span class="mobile-card__label">Custo Médio</span>
           <p class="mobile-card__value">${averageCost}</p>
+        </div>
+        <div>
+          <span class="mobile-card__label">Estoque</span>
+          <p class="mobile-card__value">${stock}</p>
         </div>
       </div>
     `;
@@ -361,32 +426,10 @@ const renderCards = (data) => {
 };
 
 const renderTable = (data) => {
-  tableHead.innerHTML = "";
-  tableBody.innerHTML = "";
-
   if (!data.length || !headers.length) {
-    tableBody.appendChild(emptyState.content.cloneNode(true));
     renderCards([]);
     return;
   }
-
-  const headerRow = document.createElement("tr");
-  headers.forEach((header) => {
-    const th = document.createElement("th");
-    th.textContent = header;
-    headerRow.appendChild(th);
-  });
-  tableHead.appendChild(headerRow);
-
-  data.forEach((row) => {
-    const tr = document.createElement("tr");
-    headers.forEach((header) => {
-      const td = document.createElement("td");
-      td.textContent = row.data?.[header] || row[header] || "—";
-      tr.appendChild(td);
-    });
-    tableBody.appendChild(tr);
-  });
 
   renderCards(data);
 };
@@ -400,16 +443,42 @@ const updateSummary = (total, filtered) => {
 
 const filterRows = () => {
   const query = searchInput.value.toLowerCase().trim();
+  
+  if (query === "") {
+    // Show all rows if search is empty
+    renderTable(parsedRows);
+    updateSummary(parsedRows.length, parsedRows.length);
+    return;
+  }
+  
   const filtered = parsedRows.filter((row) => {
-    const descricao = (
-      row.values?.[1] ||
-      row.data?.["Descrição"] ||
-      row.data?.["Descricao"] ||
-      row["Descrição"] ||
-      row["Descricao"] ||
-      ""
-    ).toLowerCase();
-    return descricao.includes(query);
+    // Search in description field with multiple possible column names
+    const descricao = getValueFromRow(row, [
+      "Descrição",
+      "Descricao",
+      "DESCRICAO"
+    ]).toLowerCase();
+    
+    // Also search in other key fields
+    const custo = getValueFromRow(row, [
+      "Custo",
+      "CUSTO",
+      "Custo Unitário"
+    ]).toLowerCase();
+    
+    const estoque = getValueFromRow(row, [
+      "Estoque",
+      "ESTOQUE",
+      "QUANTIDADE_ESTOQUE",
+      "Quantidade"
+    ]).toLowerCase();
+    
+    // Return true if query matches any of these fields
+    return (
+      descricao.includes(query) ||
+      custo.includes(query) ||
+      estoque.includes(query)
+    );
   });
 
   renderTable(filtered);
@@ -417,30 +486,50 @@ const filterRows = () => {
 };
 
 const resetSheetSelector = () => {
-  sheetControl.hidden = true;
-  sheetSelect.innerHTML = '<option value="">Selecione uma aba</option>';
-  sheetSelect.disabled = true;
+  // Only hide if there are no stored sheets
+  if (Object.keys(allSheetsData).length === 0) {
+    sheetControl.hidden = true;
+    sheetSelect.innerHTML = '<option value="">Selecione uma aba</option>';
+    sheetSelect.disabled = true;
+  }
   workbook = null;
 };
 
 const loadSheet = (sheetName) => {
-  if (!workbook || !sheetName) {
+  if (!sheetName) {
     return;
   }
 
-  const worksheet = workbook.Sheets[sheetName];
-  const jsonRows = XLSX.utils.sheet_to_json(worksheet, {
-    defval: "",
-  });
-  const rawHeaders = jsonRows.length
-    ? Object.keys(jsonRows[0]).map(sanitizeHeader)
-    : [];
+  // Try to load from workbook first (if file is loaded)
+  if (workbook && workbook.Sheets[sheetName]) {
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonRows = XLSX.utils.sheet_to_json(worksheet, {
+      defval: "",
+    });
+    const rawHeaders = jsonRows.length
+      ? Object.keys(jsonRows[0]).map(sanitizeHeader)
+      : [];
 
-  normalizeRows(rawHeaders, jsonRows);
-  searchInput.disabled = parsedRows.length === 0;
-  searchInput.value = "";
-  renderTable(parsedRows);
-  updateSummary(parsedRows.length, parsedRows.length);
+    normalizeRows(rawHeaders, jsonRows);
+    currentSheetName = sheetName;
+    saveToLocalStorage();
+    searchInput.disabled = parsedRows.length === 0;
+    searchInput.value = "";
+    renderTable(parsedRows);
+    updateSummary(parsedRows.length, parsedRows.length);
+  } 
+  // Otherwise load from stored data in localStorage
+  else if (allSheetsData[sheetName]) {
+    const sheetData = allSheetsData[sheetName];
+    headers = sheetData.headers || [];
+    parsedRows = sheetData.rows || [];
+    currentSheetName = sheetName;
+    saveToLocalStorage();
+    searchInput.disabled = parsedRows.length === 0;
+    searchInput.value = "";
+    renderTable(parsedRows);
+    updateSummary(parsedRows.length, parsedRows.length);
+  }
 };
 
 const handleCsvFile = (file) => {
@@ -453,6 +542,7 @@ const handleCsvFile = (file) => {
       parsed.rows.map((row) => row.data)
     );
 
+    saveToLocalStorage();
     resetSheetSelector();
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
@@ -470,6 +560,40 @@ const handleXlsxFile = (file) => {
     const data = loadEvent.target.result;
     workbook = XLSX.read(data, { type: "array" });
     const sheetNames = workbook.SheetNames || [];
+
+    // Clear previous sheets data and store data for all sheets
+    allSheetsData = {};
+    
+    sheetNames.forEach((name) => {
+      const worksheet = workbook.Sheets[name];
+      const jsonRows = XLSX.utils.sheet_to_json(worksheet, {
+        defval: "",
+      });
+      const rawHeaders = jsonRows.length
+        ? Object.keys(jsonRows[0]).map(sanitizeHeader)
+        : [];
+
+      // Normalize the rows for this sheet
+      const normalizedHeaders = rawHeaders.map(sanitizeHeader);
+      const normalizedRows = jsonRows.map((row) => {
+        const data = normalizedHeaders.reduce((acc, header, index) => {
+          const originalHeader = rawHeaders[index];
+          acc[header] = row?.[originalHeader] ?? row?.[header] ?? "";
+          return acc;
+        }, {});
+
+        return {
+          data,
+          values: normalizedHeaders.map((header) => data[header] ?? ""),
+        };
+      });
+
+      // Store this sheet's data
+      allSheetsData[name] = {
+        headers: normalizedHeaders,
+        rows: normalizedRows,
+      };
+    });
 
     sheetControl.hidden = sheetNames.length === 0;
     sheetSelect.disabled = sheetNames.length === 0;
@@ -489,6 +613,7 @@ const handleXlsxFile = (file) => {
       normalizeRows([], []);
       renderTable([]);
       updateSummary(0, 0);
+      clearLocalStorage();
     }
   };
 
@@ -526,11 +651,47 @@ googleFileSelect.addEventListener("change", () => {
 
 searchInput.addEventListener("input", filterRows);
 
-renderTable([]);
+// Restore data from localStorage on page load
+const initializeApp = () => {
+  const hasStoredData = loadFromLocalStorage();
+  if (hasStoredData && parsedRows.length > 0) {
+    searchInput.disabled = false;
+    
+    // Restore sheet selector if there are stored sheets
+    const sheetNames = Object.keys(allSheetsData);
+    if (sheetNames.length > 0) {
+      sheetControl.hidden = false;
+      sheetSelect.disabled = false;
+      sheetSelect.innerHTML = '<option value="">Selecione uma aba</option>';
+      
+      sheetNames.forEach((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        sheetSelect.appendChild(option);
+      });
+      
+      // Set current sheet in selector
+      if (currentSheetName) {
+        sheetSelect.value = currentSheetName;
+      }
+    } else {
+      resetSheetSelector();
+    }
+    
+    renderTable(parsedRows);
+    updateSummary(parsedRows.length, parsedRows.length);
+  } else {
+    renderTable([]);
+  }
 
-// Initialize Google integration when page loads
+  // Initialize Google integration (kept but hidden from UI)
+  // Uncomment the line below if you want to re-enable Google Sheets
+  // initializeGoogleIntegration();
+};
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initializeGoogleIntegration);
+  document.addEventListener("DOMContentLoaded", initializeApp);
 } else {
-  initializeGoogleIntegration();
+  initializeApp();
 }

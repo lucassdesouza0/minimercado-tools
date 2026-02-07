@@ -19,7 +19,7 @@
           </p>
         </div>
         <div class="page__actions">
-          <div id="googleAuthContainer" style="display: flex; gap: 10px; align-items: center;">
+          <div id="googleAuthContainer" style="display: none; gap: 10px; align-items: center;">
             <div id="buttonDiv"></div>
             <div id="googleStatus" style="font-size: 0.9em; color: #666;">Desconectado</div>
           </div>
@@ -58,43 +58,16 @@
         </div>
       </section>
 
-      <section class="table-card">
-        <div class="table-card__header">
+      <section class="cards-display" aria-live="polite">
+        <div class="cards-display__header">
           <h2>Itens encontrados</h2>
-          <p class="table-card__hint">
-            A tabela mostra todas as colunas presentes no arquivo carregado.
+          <p class="cards-display__hint">
+            Visualização em cards com foco em Descrição, Custo, Custo Médio e Estoque.
           </p>
         </div>
-        <div class="table-wrapper">
-          <table>
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="mobile-cards" aria-live="polite">
-        <div class="mobile-cards__header">
-          <h2>Itens encontrados</h2>
-          <p class="mobile-cards__hint">
-            Visualização otimizada para celular com foco em Descrição e custos.
-          </p>
-        </div>
-        <div class="mobile-cards__list" id="cardList"></div>
+        <div class="cards-display__list" id="cardList"></div>
       </section>
     </main>
-
-    <template id="emptyState">
-      <tr>
-        <td class="empty" colspan="12">
-          Carregue um arquivo para visualizar os itens.
-        </td>
-      </tr>
-    </template>
-
-    <template id="emptyStateCards">
-      <div class="card-empty">Carregue um arquivo para visualizar os itens.</div>
-    </template>
 
     <script
       src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
