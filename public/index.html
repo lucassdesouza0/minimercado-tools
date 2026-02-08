@@ -58,6 +58,56 @@
         </div>
       </section>
 
+      <section class="todo">
+        <header class="todo__header">
+          <div>
+            <h2>Todo list</h2>
+            <p class="todo__hint">
+              Gerencie tarefas com status <strong>Pending</strong>, <strong>Done</strong> e
+              <strong>Archived</strong>. Todas as ações podem ser desfeitas.
+            </p>
+          </div>
+          <div class="todo__header-actions">
+            <button class="button button--ghost" id="todoUndo" type="button" disabled>
+              Desfazer
+            </button>
+            <span class="todo__history" id="todoHistoryLabel">Nenhuma ação para desfazer</span>
+            <button class="button button--secondary" id="todoImport" type="button" disabled>
+              Importar itens da planilha
+            </button>
+          </div>
+        </header>
+
+        <form class="todo__form" id="todoForm">
+          <label class="todo__label" for="todoInput">Nova tarefa</label>
+          <div class="todo__input-group">
+            <input
+              id="todoInput"
+              type="text"
+              placeholder="Digite uma tarefa..."
+              autocomplete="off"
+              required
+            />
+            <button class="button" type="submit">Adicionar</button>
+          </div>
+        </form>
+
+        <div class="todo__controls">
+          <div class="todo__filters" role="tablist" aria-label="Filtros da lista">
+            <button class="chip chip--active" type="button" data-todo-filter="all">Todos</button>
+            <button class="chip" type="button" data-todo-filter="Pending">Pending</button>
+            <button class="chip" type="button" data-todo-filter="Done">Done</button>
+            <button class="chip" type="button" data-todo-filter="Archived">Archived</button>
+          </div>
+          <div class="todo__summary" id="todoSummary">0 itens</div>
+        </div>
+
+        <ul class="todo__list" id="todoList"></ul>
+        <div class="todo__empty" id="todoEmptyState">
+          Nenhuma tarefa criada. Adicione uma tarefa ou importe itens da planilha.
+        </div>
+      </section>
+
       <section class="cards-display" aria-live="polite">
         <div class="cards-display__header">
           <h2>Itens encontrados</h2>

@@ -12,6 +12,17 @@ const sheetSelect = document.getElementById("sheetSelect");
 const googleFileControl = document.getElementById("googleFileControl");
 const googleFileSelect = document.getElementById("googleFileSelect");
 const googleStatus = document.getElementById("googleStatus");
+const todoForm = document.getElementById("todoForm");
+const todoInput = document.getElementById("todoInput");
+const todoList = document.getElementById("todoList");
+const todoEmptyState = document.getElementById("todoEmptyState");
+const todoSummary = document.getElementById("todoSummary");
+const todoUndoButton = document.getElementById("todoUndo");
+const todoImportButton = document.getElementById("todoImport");
+const todoHistoryLabel = document.getElementById("todoHistoryLabel");
+const todoFilterButtons = Array.from(
+  document.querySelectorAll("[data-todo-filter]")
+);
 
 let parsedRows = [];
 let headers = [];
@@ -21,12 +32,16 @@ let googleFiles = [];
 let currentGoogleSheetId = null;
 let allSheetsData = {}; // Store data for all sheets
 let currentSheetName = null; // Track current sheet
+let todos = [];
+let todoHistory = [];
+let todoFilter = "all";
 
 // ========================
 // LocalStorage Management
 // ========================
 
 const STORAGE_KEY = "minimercado_spreadsheet_data";
+const TODO_STORAGE_KEY = "minimercado_todo_state";
 
 const saveToLocalStorage = () => {
   const data = {
@@ -73,6 +88,221 @@ const clearLocalStorage = () => {
   } catch (error) {
     console.error("Failed to clear localStorage:", error);
   }
+};
+
+// ========================
+// Todo List Management
+// ========================
+
+const TODO_STATUS = {
+  PENDING: "Pending",
+  DONE: "Done",
+  ARCHIVED: "Archived",
+};
+
+const cloneTodos = (list) => {
+  if (typeof structuredClone === "function") {
+    return structuredClone(list);
+  }
+  return JSON.parse(JSON.stringify(list));
+};
+
+const saveTodoState = () => {
+  const data = {
+    todos,
+    history: todoHistory,
+    filter: todoFilter,
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Failed to save todo state:", error);
+  }
+};
+
+const loadTodoState = () => {
+  try {
+    const stored = localStorage.getItem(TODO_STORAGE_KEY);
+    if (!stored) {
+      return false;
+    }
+    const data = JSON.parse(stored);
+    todos = data.todos || [];
+    todoHistory = data.history || [];
+    todoFilter = data.filter || "all";
+    return true;
+  } catch (error) {
+    console.error("Failed to load todo state:", error);
+    return false;
+  }
+};
+
+const updateTodoImportAvailability = () => {
+  todoImportButton.disabled = parsedRows.length === 0;
+};
+
+const updateUndoUI = () => {
+  const lastAction = todoHistory[todoHistory.length - 1];
+  todoUndoButton.disabled = !lastAction;
+  todoHistoryLabel.textContent = lastAction
+    ? `Última ação: ${lastAction.label}`
+    : "Nenhuma ação para desfazer";
+};
+
+const updateTodoSummary = () => {
+  const total = todos.length;
+  const pending = todos.filter((todo) => todo.status === TODO_STATUS.PENDING).length;
+  const done = todos.filter((todo) => todo.status === TODO_STATUS.DONE).length;
+  const archived = todos.filter((todo) => todo.status === TODO_STATUS.ARCHIVED).length;
+
+  todoSummary.textContent = `${total} itens | Pending: ${pending} | Done: ${done} | Archived: ${archived}`;
+};
+
+const renderTodoList = () => {
+  const filteredTodos = todos.filter((todo) => {
+    if (todoFilter === "all") {
+      return true;
+    }
+    return todo.status === todoFilter;
+  });
+
+  todoList.innerHTML = "";
+  todoEmptyState.hidden = filteredTodos.length > 0;
+
+  filteredTodos.forEach((todo) => {
+    const item = document.createElement("li");
+    item.className = "todo__item";
+    item.dataset.id = todo.id;
+
+    const statusClass = `todo__status todo__status--${todo.status}`;
+    const createdDate = new Date(todo.createdAt).toLocaleDateString("pt-BR");
+
+    item.innerHTML = `
+      <div class="todo__item-main">
+        <div class="todo__item-text">${todo.text}</div>
+        <div class="todo__item-meta">
+          <span class="${statusClass}">${todo.status}</span>
+          <span class="todo__history">Criado em ${createdDate}</span>
+        </div>
+      </div>
+      <div class="todo__actions">
+        ${todo.status === TODO_STATUS.PENDING ? '<button class="todo__action todo__action--primary" data-action="done">Done</button>' : ""}
+        ${todo.status !== TODO_STATUS.PENDING ? '<button class="todo__action" data-action="pending">Pending</button>' : ""}
+        ${todo.status !== TODO_STATUS.ARCHIVED ? '<button class="todo__action" data-action="archived">Archived</button>' : ""}
+        <button class="todo__action" data-action="edit">Editar</button>
+        <button class="todo__action todo__action--danger" data-action="delete">Excluir</button>
+      </div>
+    `;
+
+    todoList.appendChild(item);
+  });
+
+  updateTodoSummary();
+  updateUndoUI();
+  saveTodoState();
+};
+
+const pushTodoHistory = (label) => {
+  todoHistory.push({
+    label,
+    todos: cloneTodos(todos),
+    timestamp: new Date().toISOString(),
+  });
+
+  if (todoHistory.length > 50) {
+    todoHistory.shift();
+  }
+};
+
+const addTodo = (text) => {
+  pushTodoHistory("Adicionar tarefa");
+  const id =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  todos.unshift({
+    id,
+    text,
+    status: TODO_STATUS.PENDING,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  renderTodoList();
+};
+
+const updateTodo = (id, updates, label) => {
+  const index = todos.findIndex((todo) => todo.id === id);
+  if (index === -1) {
+    return;
+  }
+  pushTodoHistory(label);
+  todos[index] = {
+    ...todos[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  renderTodoList();
+};
+
+const removeTodo = (id) => {
+  const index = todos.findIndex((todo) => todo.id === id);
+  if (index === -1) {
+    return;
+  }
+  pushTodoHistory("Excluir tarefa");
+  todos.splice(index, 1);
+  renderTodoList();
+};
+
+const undoLastTodoAction = () => {
+  const previous = todoHistory.pop();
+  if (!previous) {
+    return;
+  }
+  todos = previous.todos || [];
+  renderTodoList();
+};
+
+const importTodosFromSheet = () => {
+  if (!parsedRows.length) {
+    return;
+  }
+  const existing = new Set(todos.map((todo) => todo.text.toLowerCase()));
+  const descriptions = parsedRows
+    .map((row) =>
+      getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
+    )
+    .filter(Boolean);
+
+  const newDescriptions = descriptions.filter(
+    (description) => !existing.has(description.toLowerCase())
+  );
+
+  if (!newDescriptions.length) {
+    return;
+  }
+
+  pushTodoHistory("Importar itens da planilha");
+  const now = new Date().toISOString();
+  newDescriptions.forEach((description) => {
+    const id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    todos.push({
+      id,
+      text: description,
+      status: TODO_STATUS.PENDING,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  renderTodoList();
 };
 
 // ========================
@@ -439,6 +669,7 @@ const updateSummary = (total, filtered) => {
     ? `${total} itens carregados`
     : "Nenhum arquivo carregado";
   filteredSummary.textContent = `${filtered} itens`;
+  updateTodoImportAvailability();
 };
 
 const filterRows = () => {
@@ -620,6 +851,88 @@ const handleXlsxFile = (file) => {
   reader.readAsArrayBuffer(file);
 };
 
+todoForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const value = todoInput.value.trim();
+  if (!value) {
+    return;
+  }
+  addTodo(value);
+  todoInput.value = "";
+});
+
+todoUndoButton.addEventListener("click", () => {
+  undoLastTodoAction();
+});
+
+todoImportButton.addEventListener("click", () => {
+  importTodosFromSheet();
+});
+
+todoFilterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    todoFilter = button.dataset.todoFilter || "all";
+    todoFilterButtons.forEach((btn) => btn.classList.remove("chip--active"));
+    button.classList.add("chip--active");
+    renderTodoList();
+  });
+});
+
+todoList.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const action = target.dataset.action;
+  if (!action) {
+    return;
+  }
+  const item = target.closest(".todo__item");
+  if (!item) {
+    return;
+  }
+  const id = item.dataset.id;
+  if (!id) {
+    return;
+  }
+
+  if (action === "done") {
+    updateTodo(id, { status: TODO_STATUS.DONE }, "Marcar como Done");
+    return;
+  }
+
+  if (action === "pending") {
+    updateTodo(id, { status: TODO_STATUS.PENDING }, "Marcar como Pending");
+    return;
+  }
+
+  if (action === "archived") {
+    updateTodo(id, { status: TODO_STATUS.ARCHIVED }, "Marcar como Archived");
+    return;
+  }
+
+  if (action === "edit") {
+    const current = todos.find((todo) => todo.id === id);
+    if (!current) {
+      return;
+    }
+    const updatedText = window.prompt("Editar tarefa:", current.text);
+    if (updatedText === null) {
+      return;
+    }
+    const trimmed = updatedText.trim();
+    if (!trimmed || trimmed === current.text) {
+      return;
+    }
+    updateTodo(id, { text: trimmed }, "Editar tarefa");
+    return;
+  }
+
+  if (action === "delete") {
+    removeTodo(id);
+  }
+});
+
 csvInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
   if (!file) {
@@ -684,6 +997,20 @@ const initializeApp = () => {
   } else {
     renderTable([]);
   }
+
+  const hasTodoState = loadTodoState();
+  if (hasTodoState) {
+    const activeButton =
+      todoFilterButtons.find((button) => button.dataset.todoFilter === todoFilter) ||
+      todoFilterButtons[0];
+    todoFilterButtons.forEach((button) => button.classList.remove("chip--active"));
+    if (activeButton) {
+      activeButton.classList.add("chip--active");
+    }
+  }
+
+  renderTodoList();
+  updateTodoImportAvailability();
 
   // Initialize Google integration (kept but hidden from UI)
   // Uncomment the line below if you want to re-enable Google Sheets

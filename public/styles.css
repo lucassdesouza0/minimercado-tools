@@ -190,6 +190,239 @@ body {
   grid-template-columns: 1fr;
 }
 
+.todo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(27, 33, 52, 0.08);
+}
+
+.todo__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.todo__header h2 {
+  margin: 0 0 6px;
+}
+
+.todo__hint {
+  margin: 0;
+  color: #6b7283;
+  font-size: 14px;
+  max-width: 520px;
+}
+
+.todo__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.todo__history {
+  font-size: 12px;
+  color: #6b7283;
+}
+
+.todo__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.todo__label {
+  font-weight: 600;
+  color: #2b3245;
+}
+
+.todo__input-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.todo__input-group input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #cfd5e6;
+  font-size: 15px;
+}
+
+.button {
+  padding: 11px 18px;
+  border-radius: 10px;
+  border: none;
+  background: #3845a1;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(56, 69, 161, 0.2);
+}
+
+.button:disabled {
+  background: #c7ccdd;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.button--ghost {
+  background: #f4f5fb;
+  color: #3845a1;
+  border: 1px solid #d8dbe7;
+}
+
+.button--secondary {
+  background: #eff7f2;
+  color: #2f6f46;
+  border: 1px solid #cce4d5;
+}
+
+.chip {
+  border: 1px solid #d8dbe7;
+  background: #f7f7fb;
+  color: #4b5264;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chip--active {
+  background: #3845a1;
+  color: white;
+  border-color: transparent;
+}
+
+.todo__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.todo__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.todo__summary {
+  font-weight: 600;
+  color: #2b3245;
+}
+
+.todo__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.todo__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #dfe5f3;
+  background: #f9faff;
+}
+
+.todo__item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.todo__item-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1c1f2a;
+}
+
+.todo__item-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.todo__status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eceffd;
+  color: #3845a1;
+}
+
+.todo__status--Done {
+  background: #e8f7ee;
+  color: #2f6f46;
+}
+
+.todo__status--Archived {
+  background: #f7ecec;
+  color: #9a2f2f;
+}
+
+.todo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.todo__action {
+  border: 1px solid #d8dbe7;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.todo__action--primary {
+  background: #3845a1;
+  color: white;
+  border-color: transparent;
+}
+
+.todo__action--danger {
+  background: #fbecec;
+  color: #9a2f2f;
+  border-color: #f2c9c9;
+}
+
+.todo__empty {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed #d6dbe9;
+  color: #6b7283;
+  background: #f7f9ff;
+  text-align: center;
+}
+
 .mobile-card {
   display: grid;
   gap: 0;
@@ -334,5 +567,18 @@ table {
   .mobile-card__value {
     text-align: left;
     font-size: 15px;
+  }
+
+  .todo__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .todo__item {
+    grid-template-columns: 1fr;
+  }
+
+  .todo__actions {
+    justify-content: flex-start;
   }
 }
