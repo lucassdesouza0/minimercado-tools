@@ -2,7 +2,6 @@ const csvInput = document.getElementById("csvFile");
 const searchInput = document.getElementById("searchInput");
 const tableHead = null; // No longer used
 const tableBody = null; // No longer used
-const cardList = document.getElementById("cardList");
 const resultSummary = document.getElementById("resultSummary");
 const filteredSummary = document.getElementById("filteredSummary");
 const emptyState = null; // No longer used
@@ -12,8 +11,6 @@ const sheetSelect = document.getElementById("sheetSelect");
 const googleFileControl = document.getElementById("googleFileControl");
 const googleFileSelect = document.getElementById("googleFileSelect");
 const googleStatus = document.getElementById("googleStatus");
-const todoForm = document.getElementById("todoForm");
-const todoInput = document.getElementById("todoInput");
 const todoList = document.getElementById("todoList");
 const todoEmptyState = document.getElementById("todoEmptyState");
 const todoSummary = document.getElementById("todoSummary");
@@ -34,6 +31,7 @@ let currentSheetName = null; // Track current sheet
 let todos = [];
 let todoHistory = [];
 let todoFilter = "all";
+let visibleRows = [];
 
 // ========================
 // LocalStorage Management
@@ -167,6 +165,8 @@ const updateTodoSummary = () => {
   todoSummary.textContent = `${total} itens | Pending: ${pending} | Done: ${done} | Archived: ${archived}`;
 };
 
+const formatFieldValue = (value) => (value && value.trim() ? value : "—");
+
 const renderTodoList = () => {
   const visibleTodos = todos.filter((todo) => {
     if (todoFilter === "all") {
@@ -229,13 +229,29 @@ const renderTodoList = () => {
             <span class="${statusClass}">${todo.status}</span>
             <span class="todo__history">Criado em ${createdDate}</span>
           </div>
+          <div class="todo__item-fields">
+            <div>
+              <span class="todo__field-label">Custo</span>
+              <span class="todo__field-value">${formatFieldValue(todo.cost)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Custo Médio</span>
+              <span class="todo__field-value">${formatFieldValue(todo.averageCost)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Qtd PDV</span>
+              <span class="todo__field-value">${formatFieldValue(todo.qtdPdv)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Estoque</span>
+              <span class="todo__field-value">${formatFieldValue(todo.stock)}</span>
+            </div>
+          </div>
         </div>
         <div class="todo__actions">
           ${todo.status === TODO_STATUS.PENDING ? '<button class="todo__action todo__action--primary" data-action="done">Done</button>' : ""}
           ${todo.status !== TODO_STATUS.PENDING ? '<button class="todo__action" data-action="pending">Pending</button>' : ""}
           ${todo.status !== TODO_STATUS.ARCHIVED ? '<button class="todo__action" data-action="archived">Archived</button>' : ""}
-          <button class="todo__action" data-action="edit">Editar</button>
-          <button class="todo__action todo__action--danger" data-action="delete">Excluir</button>
         </div>
       `;
 
@@ -250,9 +266,39 @@ const renderTodoList = () => {
   saveTodoState();
 };
 
-const syncTodosWithParsedRows = () => {
-  if (!parsedRows.length) {
-    todos = todos.filter((todo) => todo.origin !== "sheet");
+const buildSheetFields = (row) => {
+  const cost =
+    getValueFromRow(row, ["Custo", "CUSTO", "Custo Unitário"]) ||
+    getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) ||
+    "";
+  const averageCost =
+    getValueFromRow(row, [
+      "CUSTO_MEDIO",
+      "Custo_medio",
+      "Custo Medio",
+      "Custo Médio",
+      "CUSTO MEDIO",
+      "CUSTO_MEDIO_AJUSTADO",
+    ]) || "";
+  const qtdPdv =
+    getValueFromRow(row, [
+      "qtd pdv",
+      "Qtd PDV",
+      "QTD PDV",
+      "QTD_PDV",
+      "Qtd_PDV",
+      "Quantidade PDV",
+    ]) || "";
+  const stock =
+    getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
+    "";
+
+  return { cost, averageCost, qtdPdv, stock };
+};
+
+const syncTodosWithParsedRows = (rows = parsedRows) => {
+  if (!rows.length) {
+    todos = [];
     return;
   }
 
@@ -262,7 +308,7 @@ const syncTodosWithParsedRows = () => {
       .map((todo) => [todo.sourceId, todo])
   );
 
-  const sheetTodos = parsedRows
+  const sheetTodos = rows
     .map((row, index) =>
       getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
     )
@@ -270,19 +316,23 @@ const syncTodosWithParsedRows = () => {
     .map((description, index) => {
       const sourceId = buildTodoId(description, index);
       const existing = existingSheetTodos.get(sourceId);
+      const fields = buildSheetFields(rows[index]);
       return {
         id: existing?.id || sourceId,
         sourceId,
         origin: "sheet",
         text: description,
         status: existing?.status || TODO_STATUS.PENDING,
+        cost: fields.cost,
+        averageCost: fields.averageCost,
+        qtdPdv: fields.qtdPdv,
+        stock: fields.stock,
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: existing?.updatedAt || new Date().toISOString(),
       };
     });
 
-  const manualTodos = todos.filter((todo) => todo.origin !== "sheet");
-  todos = [...sheetTodos, ...manualTodos];
+  todos = sheetTodos;
 };
 
 const pushTodoHistory = (label) => {
@@ -297,26 +347,6 @@ const pushTodoHistory = (label) => {
   }
 };
 
-const addTodo = (text) => {
-  pushTodoHistory("Adicionar tarefa");
-  const id =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  todos.unshift({
-    id,
-    sourceId: id,
-    origin: "manual",
-    text,
-    status: TODO_STATUS.PENDING,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  renderTodoList();
-};
-
 const updateTodo = (id, updates, label) => {
   const index = todos.findIndex((todo) => todo.id === id);
   if (index === -1) {
@@ -328,16 +358,6 @@ const updateTodo = (id, updates, label) => {
     ...updates,
     updatedAt: new Date().toISOString(),
   };
-  renderTodoList();
-};
-
-const removeTodo = (id) => {
-  const index = todos.findIndex((todo) => todo.id === id);
-  if (index === -1) {
-    return;
-  }
-  pushTodoHistory("Excluir tarefa");
-  todos.splice(index, 1);
   renderTodoList();
 };
 
@@ -534,7 +554,7 @@ const loadGoogleSheetData = async (fileId, sheetName) => {
 
     if (values.length === 0) {
       normalizeRows([], []);
-      renderTable([]);
+      visibleRows = [];
       updateSummary(0, 0);
       return;
     }
@@ -553,7 +573,7 @@ const loadGoogleSheetData = async (fileId, sheetName) => {
     normalizeRows(rawHeaders, jsonRows);
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } catch (error) {
     console.error("Error loading Google sheet data:", error);
@@ -623,6 +643,7 @@ const normalizeRows = (rawHeaders, dataRows) => {
       values: headers.map((header) => data[header] ?? ""),
     };
   });
+  visibleRows = parsedRows;
 };
 
 const parseCsv = (content) => {
@@ -650,92 +671,12 @@ const parseCsv = (content) => {
   return { headers: rawHeaders, rows: dataRows };
 };
 
-const renderCards = (data) => {
-  cardList.innerHTML = "";
-
-  if (!data.length) {
-    cardList.innerHTML = '<div class="card-empty">Carregue um arquivo para visualizar os itens.</div>';
-    return;
-  }
-
-  data.forEach((row) => {
-    const description =
-      getValueFromRow(row, ["Descrição", "Descricao"]) || "—";
-    const cost = 
-      getValueFromRow(row, ["Custo", "CUSTO", "Custo Unitário"]) || 
-      getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) || 
-      "—";
-    const averageCost =
-      getValueFromRow(row, [
-        "CUSTO_MEDIO",
-        "Custo_medio",
-        "Custo Medio",
-        "Custo Médio",
-        "CUSTO MEDIO",
-        "CUSTO_MEDIO_AJUSTADO",
-      ]) ||
-      "—";
-    const qtdPdv =
-      getValueFromRow(row, [
-        "qtd pdv",
-        "Qtd PDV",
-        "QTD PDV",
-        "QTD_PDV",
-        "Qtd_PDV",
-        "Quantidade PDV",
-      ]) ||
-      "—";
-    const stock =
-      getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
-      "—";
-
-    const card = document.createElement("article");
-    card.className = "mobile-card";
-
-    card.innerHTML = `
-      <div class="mobile-card__main">
-        <span class="mobile-card__label">Descrição</span>
-        <p class="mobile-card__value">${description}</p>
-      </div>
-      <div class="mobile-card__meta">
-        <div>
-          <span class="mobile-card__label">Custo</span>
-          <p class="mobile-card__value mobile-card__value--emphasis">${cost}</p>
-        </div>
-        <div>
-          <span class="mobile-card__label">Custo Médio</span>
-          <p class="mobile-card__value">${averageCost}</p>
-        </div>
-        <div>
-          <span class="mobile-card__label">Qtd PDV</span>
-          <p class="mobile-card__value">${qtdPdv}</p>
-        </div>
-        <div>
-          <span class="mobile-card__label">Estoque</span>
-          <p class="mobile-card__value">${stock}</p>
-        </div>
-      </div>
-    `;
-
-    cardList.appendChild(card);
-  });
-};
-
-const renderTable = (data) => {
-  if (!data.length || !headers.length) {
-    renderCards([]);
-    return;
-  }
-
-  renderCards(data);
-};
-
 const updateSummary = (total, filtered) => {
   resultSummary.textContent = total
     ? `${total} itens carregados`
     : "Nenhum arquivo carregado";
   filteredSummary.textContent = `${filtered} itens`;
-  syncTodosWithParsedRows();
+  syncTodosWithParsedRows(visibleRows);
   renderTodoList();
 };
 
@@ -744,7 +685,7 @@ const filterRows = () => {
   
   if (query === "") {
     // Show all rows if search is empty
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
     return;
   }
@@ -779,7 +720,7 @@ const filterRows = () => {
     );
   });
 
-  renderTable(filtered);
+  visibleRows = filtered;
   updateSummary(parsedRows.length, filtered.length);
 };
 
@@ -813,7 +754,7 @@ const loadSheet = (sheetName) => {
     saveToLocalStorage();
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } 
   // Otherwise load from stored data in localStorage
@@ -825,7 +766,7 @@ const loadSheet = (sheetName) => {
     saveToLocalStorage();
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   }
 };
@@ -845,7 +786,7 @@ const handleCsvFile = (file) => {
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
 
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   };
 
@@ -909,7 +850,7 @@ const handleXlsxFile = (file) => {
       loadSheet(sheetNames[0]);
     } else {
       normalizeRows([], []);
-      renderTable([]);
+      visibleRows = [];
       updateSummary(0, 0);
       clearLocalStorage();
     }
@@ -917,16 +858,6 @@ const handleXlsxFile = (file) => {
 
   reader.readAsArrayBuffer(file);
 };
-
-todoForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const value = todoInput.value.trim();
-  if (!value) {
-    return;
-  }
-  addTodo(value);
-  todoInput.value = "";
-});
 
 todoUndoButton.addEventListener("click", () => {
   undoLastTodoAction();
@@ -974,26 +905,6 @@ todoList.addEventListener("click", (event) => {
     return;
   }
 
-  if (action === "edit") {
-    const current = todos.find((todo) => todo.id === id);
-    if (!current) {
-      return;
-    }
-    const updatedText = window.prompt("Editar tarefa:", current.text);
-    if (updatedText === null) {
-      return;
-    }
-    const trimmed = updatedText.trim();
-    if (!trimmed || trimmed === current.text) {
-      return;
-    }
-    updateTodo(id, { text: trimmed }, "Editar tarefa");
-    return;
-  }
-
-  if (action === "delete") {
-    removeTodo(id);
-  }
 });
 
 csvInput.addEventListener("change", (event) => {
@@ -1066,14 +977,12 @@ const initializeApp = () => {
       resetSheetSelector();
     }
     
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } else {
-    renderTable([]);
+    visibleRows = [];
+    updateSummary(0, 0);
   }
-
-  syncTodosWithParsedRows();
-  renderTodoList();
 
   // Initialize Google integration (kept but hidden from UI)
   // Uncomment the line below if you want to re-enable Google Sheets

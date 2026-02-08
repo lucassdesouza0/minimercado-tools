@@ -402,6 +402,28 @@ body {
   align-items: center;
 }
 
+.todo__item-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.todo__field-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7283;
+}
+
+.todo__field-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c1f2a;
+}
+
 .todo__status {
   font-size: 11px;
   font-weight: 700;
@@ -639,5 +661,9 @@ table {
   .todo__item-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .todo__item-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
