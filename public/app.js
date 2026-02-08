@@ -668,6 +668,9 @@ const renderCards = (data) => {
     const averageCost =
       getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio", "CUSTO_MEDIO_AJUSTADO"]) ||
       "—";
+    const qtdPdv =
+      getValueFromRow(row, ["qtd pdv", "Qtd PDV", "QTD_PDV", "Quantidade PDV"]) ||
+      "—";
     const stock =
       getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
       "—";
@@ -688,6 +691,10 @@ const renderCards = (data) => {
         <div>
           <span class="mobile-card__label">Custo Médio</span>
           <p class="mobile-card__value">${averageCost}</p>
+        </div>
+        <div>
+          <span class="mobile-card__label">Qtd PDV</span>
+          <p class="mobile-card__value">${qtdPdv}</p>
         </div>
         <div>
           <span class="mobile-card__label">Estoque</span>
