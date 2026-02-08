@@ -168,7 +168,7 @@ const updateTodoSummary = () => {
 };
 
 const renderTodoList = () => {
-  const filteredTodos = todos.filter((todo) => {
+  const visibleTodos = todos.filter((todo) => {
     if (todoFilter === "all") {
       return true;
     }
@@ -176,34 +176,73 @@ const renderTodoList = () => {
   });
 
   todoList.innerHTML = "";
-  todoEmptyState.hidden = filteredTodos.length > 0;
+  todoEmptyState.hidden = visibleTodos.length > 0;
 
-  filteredTodos.forEach((todo) => {
-    const item = document.createElement("li");
-    item.className = "todo__item";
-    item.dataset.id = todo.id;
+  const grouped = {
+    [TODO_STATUS.PENDING]: [],
+    [TODO_STATUS.DONE]: [],
+    [TODO_STATUS.ARCHIVED]: [],
+  };
 
-    const statusClass = `todo__status todo__status--${todo.status}`;
-    const createdDate = new Date(todo.createdAt).toLocaleDateString("pt-BR");
+  visibleTodos.forEach((todo) => {
+    if (grouped[todo.status]) {
+      grouped[todo.status].push(todo);
+    }
+  });
 
-    item.innerHTML = `
-      <div class="todo__item-main">
-        <div class="todo__item-text">${todo.text}</div>
-        <div class="todo__item-meta">
-          <span class="${statusClass}">${todo.status}</span>
-          <span class="todo__history">Criado em ${createdDate}</span>
-        </div>
+  const sections = [
+    { key: TODO_STATUS.PENDING, label: "Pending" },
+    { key: TODO_STATUS.DONE, label: "Done" },
+    { key: TODO_STATUS.ARCHIVED, label: "Archived" },
+  ];
+
+  sections.forEach((section) => {
+    const items = grouped[section.key] || [];
+    if (!items.length) {
+      return;
+    }
+
+    const group = document.createElement("li");
+    group.className = "todo__group";
+    group.innerHTML = `
+      <div class="todo__group-header">
+        <h3>${section.label}</h3>
+        <span>${items.length} itens</span>
       </div>
-      <div class="todo__actions">
-        ${todo.status === TODO_STATUS.PENDING ? '<button class="todo__action todo__action--primary" data-action="done">Done</button>' : ""}
-        ${todo.status !== TODO_STATUS.PENDING ? '<button class="todo__action" data-action="pending">Pending</button>' : ""}
-        ${todo.status !== TODO_STATUS.ARCHIVED ? '<button class="todo__action" data-action="archived">Archived</button>' : ""}
-        <button class="todo__action" data-action="edit">Editar</button>
-        <button class="todo__action todo__action--danger" data-action="delete">Excluir</button>
-      </div>
+      <ul class="todo__group-list"></ul>
     `;
 
-    todoList.appendChild(item);
+    const list = group.querySelector(".todo__group-list");
+
+    items.forEach((todo) => {
+      const item = document.createElement("li");
+      item.className = "todo__item";
+      item.dataset.id = todo.id;
+
+      const statusClass = `todo__status todo__status--${todo.status}`;
+      const createdDate = new Date(todo.createdAt).toLocaleDateString("pt-BR");
+
+      item.innerHTML = `
+        <div class="todo__item-main">
+          <div class="todo__item-text">${todo.text}</div>
+          <div class="todo__item-meta">
+            <span class="${statusClass}">${todo.status}</span>
+            <span class="todo__history">Criado em ${createdDate}</span>
+          </div>
+        </div>
+        <div class="todo__actions">
+          ${todo.status === TODO_STATUS.PENDING ? '<button class="todo__action todo__action--primary" data-action="done">Done</button>' : ""}
+          ${todo.status !== TODO_STATUS.PENDING ? '<button class="todo__action" data-action="pending">Pending</button>' : ""}
+          ${todo.status !== TODO_STATUS.ARCHIVED ? '<button class="todo__action" data-action="archived">Archived</button>' : ""}
+          <button class="todo__action" data-action="edit">Editar</button>
+          <button class="todo__action todo__action--danger" data-action="delete">Excluir</button>
+        </div>
+      `;
+
+      list.appendChild(item);
+    });
+
+    todoList.appendChild(group);
   });
 
   updateTodoSummary();
