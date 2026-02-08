@@ -666,10 +666,24 @@ const renderCards = (data) => {
       getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) || 
       "—";
     const averageCost =
-      getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio", "CUSTO_MEDIO_AJUSTADO"]) ||
+      getValueFromRow(row, [
+        "CUSTO_MEDIO",
+        "Custo_medio",
+        "Custo Medio",
+        "Custo Médio",
+        "CUSTO MEDIO",
+        "CUSTO_MEDIO_AJUSTADO",
+      ]) ||
       "—";
     const qtdPdv =
-      getValueFromRow(row, ["qtd pdv", "Qtd PDV", "QTD_PDV", "Quantidade PDV"]) ||
+      getValueFromRow(row, [
+        "qtd pdv",
+        "Qtd PDV",
+        "QTD PDV",
+        "QTD_PDV",
+        "Qtd_PDV",
+        "Quantidade PDV",
+      ]) ||
       "—";
     const stock =
       getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
