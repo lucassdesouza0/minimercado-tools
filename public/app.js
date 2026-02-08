@@ -18,7 +18,6 @@ const todoList = document.getElementById("todoList");
 const todoEmptyState = document.getElementById("todoEmptyState");
 const todoSummary = document.getElementById("todoSummary");
 const todoUndoButton = document.getElementById("todoUndo");
-const todoImportButton = document.getElementById("todoImport");
 const todoHistoryLabel = document.getElementById("todoHistoryLabel");
 const todoFilterButtons = Array.from(
   document.querySelectorAll("[data-todo-filter]")
@@ -138,8 +137,17 @@ const loadTodoState = () => {
   }
 };
 
-const updateTodoImportAvailability = () => {
-  todoImportButton.disabled = parsedRows.length === 0;
+const normalizeTodoText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const buildTodoId = (text, index) => {
+  const base = normalizeTodoText(text).replace(/\s+/g, "-");
+  const sheetScope = currentSheetName ? normalizeTodoText(currentSheetName) : "planilha";
+  return `${sheetScope}-${base || "item"}-${index}`;
 };
 
 const updateUndoUI = () => {
@@ -203,6 +211,41 @@ const renderTodoList = () => {
   saveTodoState();
 };
 
+const syncTodosWithParsedRows = () => {
+  if (!parsedRows.length) {
+    todos = todos.filter((todo) => todo.origin !== "sheet");
+    return;
+  }
+
+  const existingSheetTodos = new Map(
+    todos
+      .filter((todo) => todo.origin === "sheet")
+      .map((todo) => [todo.sourceId, todo])
+  );
+
+  const sheetTodos = parsedRows
+    .map((row, index) =>
+      getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
+    )
+    .filter(Boolean)
+    .map((description, index) => {
+      const sourceId = buildTodoId(description, index);
+      const existing = existingSheetTodos.get(sourceId);
+      return {
+        id: existing?.id || sourceId,
+        sourceId,
+        origin: "sheet",
+        text: description,
+        status: existing?.status || TODO_STATUS.PENDING,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: existing?.updatedAt || new Date().toISOString(),
+      };
+    });
+
+  const manualTodos = todos.filter((todo) => todo.origin !== "sheet");
+  todos = [...sheetTodos, ...manualTodos];
+};
+
 const pushTodoHistory = (label) => {
   todoHistory.push({
     label,
@@ -224,6 +267,8 @@ const addTodo = (text) => {
 
   todos.unshift({
     id,
+    sourceId: id,
+    origin: "manual",
     text,
     status: TODO_STATUS.PENDING,
     createdAt: new Date().toISOString(),
@@ -263,45 +308,6 @@ const undoLastTodoAction = () => {
     return;
   }
   todos = previous.todos || [];
-  renderTodoList();
-};
-
-const importTodosFromSheet = () => {
-  if (!parsedRows.length) {
-    return;
-  }
-  const existing = new Set(todos.map((todo) => todo.text.toLowerCase()));
-  const descriptions = parsedRows
-    .map((row) =>
-      getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
-    )
-    .filter(Boolean);
-
-  const newDescriptions = descriptions.filter(
-    (description) => !existing.has(description.toLowerCase())
-  );
-
-  if (!newDescriptions.length) {
-    return;
-  }
-
-  pushTodoHistory("Importar itens da planilha");
-  const now = new Date().toISOString();
-  newDescriptions.forEach((description) => {
-    const id =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    todos.push({
-      id,
-      text: description,
-      status: TODO_STATUS.PENDING,
-      createdAt: now,
-      updatedAt: now,
-    });
-  });
-
   renderTodoList();
 };
 
@@ -669,7 +675,8 @@ const updateSummary = (total, filtered) => {
     ? `${total} itens carregados`
     : "Nenhum arquivo carregado";
   filteredSummary.textContent = `${filtered} itens`;
-  updateTodoImportAvailability();
+  syncTodosWithParsedRows();
+  renderTodoList();
 };
 
 const filterRows = () => {
@@ -865,10 +872,6 @@ todoUndoButton.addEventListener("click", () => {
   undoLastTodoAction();
 });
 
-todoImportButton.addEventListener("click", () => {
-  importTodosFromSheet();
-});
-
 todoFilterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     todoFilter = button.dataset.todoFilter || "all";
@@ -966,6 +969,17 @@ searchInput.addEventListener("input", filterRows);
 
 // Restore data from localStorage on page load
 const initializeApp = () => {
+  const hasTodoState = loadTodoState();
+  if (hasTodoState) {
+    const activeButton =
+      todoFilterButtons.find((button) => button.dataset.todoFilter === todoFilter) ||
+      todoFilterButtons[0];
+    todoFilterButtons.forEach((button) => button.classList.remove("chip--active"));
+    if (activeButton) {
+      activeButton.classList.add("chip--active");
+    }
+  }
+
   const hasStoredData = loadFromLocalStorage();
   if (hasStoredData && parsedRows.length > 0) {
     searchInput.disabled = false;
@@ -998,19 +1012,8 @@ const initializeApp = () => {
     renderTable([]);
   }
 
-  const hasTodoState = loadTodoState();
-  if (hasTodoState) {
-    const activeButton =
-      todoFilterButtons.find((button) => button.dataset.todoFilter === todoFilter) ||
-      todoFilterButtons[0];
-    todoFilterButtons.forEach((button) => button.classList.remove("chip--active"));
-    if (activeButton) {
-      activeButton.classList.add("chip--active");
-    }
-  }
-
+  syncTodosWithParsedRows();
   renderTodoList();
-  updateTodoImportAvailability();
 
   // Initialize Google integration (kept but hidden from UI)
   // Uncomment the line below if you want to re-enable Google Sheets

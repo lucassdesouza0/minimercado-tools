@@ -64,7 +64,8 @@
             <h2>Todo list</h2>
             <p class="todo__hint">
               Gerencie tarefas com status <strong>Pending</strong>, <strong>Done</strong> e
-              <strong>Archived</strong>. Todas as ações podem ser desfeitas.
+              <strong>Archived</strong>. Os itens carregados da planilha viram tarefas
+              automaticamente e todas as ações podem ser desfeitas.
             </p>
           </div>
           <div class="todo__header-actions">
@@ -72,9 +73,6 @@
               Desfazer
             </button>
             <span class="todo__history" id="todoHistoryLabel">Nenhuma ação para desfazer</span>
-            <button class="button button--secondary" id="todoImport" type="button" disabled>
-              Importar itens da planilha
-            </button>
           </div>
         </header>
 
@@ -104,7 +102,7 @@
 
         <ul class="todo__list" id="todoList"></ul>
         <div class="todo__empty" id="todoEmptyState">
-          Nenhuma tarefa criada. Adicione uma tarefa ou importe itens da planilha.
+          Nenhuma tarefa criada. Adicione uma tarefa ou carregue itens da planilha.
         </div>
       </section>
 
