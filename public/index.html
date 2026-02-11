@@ -58,14 +58,38 @@
         </div>
       </section>
 
-      <section class="cards-display" aria-live="polite">
-        <div class="cards-display__header">
-          <h2>Itens encontrados</h2>
-          <p class="cards-display__hint">
-            Visualização em cards com foco em Descrição, Custo, Custo Médio e Estoque.
-          </p>
+      <section class="todo">
+        <header class="todo__header">
+          <div>
+            <h2>Itens encontrados</h2>
+            <p class="todo__hint">
+              Organize os itens da planilha com status <strong>Pending</strong>,
+              <strong>Done</strong> e <strong>Archived</strong>. Todas as ações podem ser
+              desfeitas.
+            </p>
+          </div>
+          <div class="todo__header-actions">
+            <button class="button button--ghost" id="todoUndo" type="button" disabled>
+              Desfazer
+            </button>
+            <span class="todo__history" id="todoHistoryLabel">Nenhuma ação para desfazer</span>
+          </div>
+        </header>
+
+        <div class="todo__controls">
+          <div class="todo__filters" role="tablist" aria-label="Filtros da lista">
+            <button class="chip chip--active" type="button" data-todo-filter="all">Todos</button>
+            <button class="chip" type="button" data-todo-filter="Pending">Pending</button>
+            <button class="chip" type="button" data-todo-filter="Done">Done</button>
+            <button class="chip" type="button" data-todo-filter="Archived">Archived</button>
+          </div>
+          <div class="todo__summary" id="todoSummary">0 itens</div>
         </div>
-        <div class="cards-display__list" id="cardList"></div>
+
+        <ul class="todo__list" id="todoList"></ul>
+        <div class="todo__empty" id="todoEmptyState">
+          Nenhum item carregado. Importe uma planilha para visualizar os itens.
+        </div>
       </section>
     </main>
 

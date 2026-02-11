@@ -2,7 +2,6 @@ const csvInput = document.getElementById("csvFile");
 const searchInput = document.getElementById("searchInput");
 const tableHead = null; // No longer used
 const tableBody = null; // No longer used
-const cardList = document.getElementById("cardList");
 const resultSummary = document.getElementById("resultSummary");
 const filteredSummary = document.getElementById("filteredSummary");
 const emptyState = null; // No longer used
@@ -12,6 +11,14 @@ const sheetSelect = document.getElementById("sheetSelect");
 const googleFileControl = document.getElementById("googleFileControl");
 const googleFileSelect = document.getElementById("googleFileSelect");
 const googleStatus = document.getElementById("googleStatus");
+const todoList = document.getElementById("todoList");
+const todoEmptyState = document.getElementById("todoEmptyState");
+const todoSummary = document.getElementById("todoSummary");
+const todoUndoButton = document.getElementById("todoUndo");
+const todoHistoryLabel = document.getElementById("todoHistoryLabel");
+const todoFilterButtons = Array.from(
+  document.querySelectorAll("[data-todo-filter]")
+);
 
 let parsedRows = [];
 let headers = [];
@@ -21,12 +28,17 @@ let googleFiles = [];
 let currentGoogleSheetId = null;
 let allSheetsData = {}; // Store data for all sheets
 let currentSheetName = null; // Track current sheet
+let todos = [];
+let todoHistory = [];
+let todoFilter = "all";
+let visibleRows = [];
 
 // ========================
 // LocalStorage Management
 // ========================
 
 const STORAGE_KEY = "minimercado_spreadsheet_data";
+const TODO_STORAGE_KEY = "minimercado_todo_state";
 
 const saveToLocalStorage = () => {
   const data = {
@@ -73,6 +85,289 @@ const clearLocalStorage = () => {
   } catch (error) {
     console.error("Failed to clear localStorage:", error);
   }
+};
+
+// ========================
+// Todo List Management
+// ========================
+
+const TODO_STATUS = {
+  PENDING: "Pending",
+  DONE: "Done",
+  ARCHIVED: "Archived",
+};
+
+const cloneTodos = (list) => {
+  if (typeof structuredClone === "function") {
+    return structuredClone(list);
+  }
+  return JSON.parse(JSON.stringify(list));
+};
+
+const saveTodoState = () => {
+  const data = {
+    todos,
+    history: todoHistory,
+    filter: todoFilter,
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Failed to save todo state:", error);
+  }
+};
+
+const loadTodoState = () => {
+  try {
+    const stored = localStorage.getItem(TODO_STORAGE_KEY);
+    if (!stored) {
+      return false;
+    }
+    const data = JSON.parse(stored);
+    todos = data.todos || [];
+    todoHistory = data.history || [];
+    todoFilter = data.filter || "all";
+    return true;
+  } catch (error) {
+    console.error("Failed to load todo state:", error);
+    return false;
+  }
+};
+
+const normalizeTodoText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const buildTodoId = (text, index) => {
+  const base = normalizeTodoText(text).replace(/\s+/g, "-");
+  const sheetScope = currentSheetName ? normalizeTodoText(currentSheetName) : "planilha";
+  return `${sheetScope}-${base || "item"}-${index}`;
+};
+
+const updateUndoUI = () => {
+  const lastAction = todoHistory[todoHistory.length - 1];
+  todoUndoButton.disabled = !lastAction;
+  todoHistoryLabel.textContent = lastAction
+    ? `Última ação: ${lastAction.label}`
+    : "Nenhuma ação para desfazer";
+};
+
+const updateTodoSummary = () => {
+  const total = todos.length;
+  const pending = todos.filter((todo) => todo.status === TODO_STATUS.PENDING).length;
+  const done = todos.filter((todo) => todo.status === TODO_STATUS.DONE).length;
+  const archived = todos.filter((todo) => todo.status === TODO_STATUS.ARCHIVED).length;
+
+  todoSummary.textContent = `${total} itens | Pending: ${pending} | Done: ${done} | Archived: ${archived}`;
+};
+
+const formatFieldValue = (value) => (value && value.trim() ? value : "—");
+
+const renderTodoList = () => {
+  const visibleTodos = todos.filter((todo) => {
+    if (todoFilter === "all") {
+      return true;
+    }
+    return todo.status === todoFilter;
+  });
+
+  todoList.innerHTML = "";
+  todoEmptyState.hidden = visibleTodos.length > 0;
+
+  const grouped = {
+    [TODO_STATUS.PENDING]: [],
+    [TODO_STATUS.DONE]: [],
+    [TODO_STATUS.ARCHIVED]: [],
+  };
+
+  visibleTodos.forEach((todo) => {
+    if (grouped[todo.status]) {
+      grouped[todo.status].push(todo);
+    }
+  });
+
+  const sections = [
+    { key: TODO_STATUS.PENDING, label: "Pending" },
+    { key: TODO_STATUS.DONE, label: "Done" },
+    { key: TODO_STATUS.ARCHIVED, label: "Archived" },
+  ];
+
+  sections.forEach((section) => {
+    const items = grouped[section.key] || [];
+    if (!items.length) {
+      return;
+    }
+
+    const group = document.createElement("li");
+    group.className = "todo__group";
+    group.innerHTML = `
+      <div class="todo__group-header">
+        <h3>${section.label}</h3>
+        <span>${items.length} itens</span>
+      </div>
+      <ul class="todo__group-list"></ul>
+    `;
+
+    const list = group.querySelector(".todo__group-list");
+
+    items.forEach((todo) => {
+      const item = document.createElement("li");
+      item.className = "todo__item";
+      item.dataset.id = todo.id;
+
+      const statusClass = `todo__status todo__status--${todo.status}`;
+      const createdDate = new Date(todo.createdAt).toLocaleDateString("pt-BR");
+
+      item.innerHTML = `
+        <div class="todo__item-main">
+          <div class="todo__item-text">${todo.text}</div>
+          <div class="todo__item-meta">
+            <span class="${statusClass}">${todo.status}</span>
+            <span class="todo__history">Criado em ${createdDate}</span>
+          </div>
+          <div class="todo__item-fields">
+            <div>
+              <span class="todo__field-label">Custo</span>
+              <span class="todo__field-value">${formatFieldValue(todo.cost)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Custo Médio</span>
+              <span class="todo__field-value">${formatFieldValue(todo.averageCost)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Qtd PDV</span>
+              <span class="todo__field-value">${formatFieldValue(todo.qtdPdv)}</span>
+            </div>
+            <div>
+              <span class="todo__field-label">Estoque</span>
+              <span class="todo__field-value">${formatFieldValue(todo.stock)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="todo__actions">
+          ${todo.status === TODO_STATUS.PENDING ? '<button class="todo__action todo__action--primary" data-action="done">Done</button>' : ""}
+          ${todo.status !== TODO_STATUS.PENDING ? '<button class="todo__action" data-action="pending">Pending</button>' : ""}
+          ${todo.status !== TODO_STATUS.ARCHIVED ? '<button class="todo__action" data-action="archived">Archived</button>' : ""}
+        </div>
+      `;
+
+      list.appendChild(item);
+    });
+
+    todoList.appendChild(group);
+  });
+
+  updateTodoSummary();
+  updateUndoUI();
+  saveTodoState();
+};
+
+const buildSheetFields = (row) => {
+  const cost =
+    getValueFromRow(row, ["Custo", "CUSTO", "Custo Unitário"]) ||
+    getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) ||
+    "";
+  const averageCost =
+    getValueFromRow(row, [
+      "CUSTO_MEDIO",
+      "Custo_medio",
+      "Custo Medio",
+      "Custo Médio",
+      "CUSTO MEDIO",
+      "CUSTO_MEDIO_AJUSTADO",
+    ]) || "";
+  const qtdPdv =
+    getValueFromRow(row, [
+      "qtd pdv",
+      "Qtd PDV",
+      "QTD PDV",
+      "QTD_PDV",
+      "Qtd_PDV",
+      "Quantidade PDV",
+    ]) || "";
+  const stock =
+    getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
+    "";
+
+  return { cost, averageCost, qtdPdv, stock };
+};
+
+const syncTodosWithParsedRows = (rows = parsedRows) => {
+  if (!rows.length) {
+    todos = [];
+    return;
+  }
+
+  const existingSheetTodos = new Map(
+    todos
+      .filter((todo) => todo.origin === "sheet")
+      .map((todo) => [todo.sourceId, todo])
+  );
+
+  const sheetTodos = rows
+    .map((row, index) =>
+      getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
+    )
+    .filter(Boolean)
+    .map((description, index) => {
+      const sourceId = buildTodoId(description, index);
+      const existing = existingSheetTodos.get(sourceId);
+      const fields = buildSheetFields(rows[index]);
+      return {
+        id: existing?.id || sourceId,
+        sourceId,
+        origin: "sheet",
+        text: description,
+        status: existing?.status || TODO_STATUS.PENDING,
+        cost: fields.cost,
+        averageCost: fields.averageCost,
+        qtdPdv: fields.qtdPdv,
+        stock: fields.stock,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: existing?.updatedAt || new Date().toISOString(),
+      };
+    });
+
+  todos = sheetTodos;
+};
+
+const pushTodoHistory = (label) => {
+  todoHistory.push({
+    label,
+    todos: cloneTodos(todos),
+    timestamp: new Date().toISOString(),
+  });
+
+  if (todoHistory.length > 50) {
+    todoHistory.shift();
+  }
+};
+
+const updateTodo = (id, updates, label) => {
+  const index = todos.findIndex((todo) => todo.id === id);
+  if (index === -1) {
+    return;
+  }
+  pushTodoHistory(label);
+  todos[index] = {
+    ...todos[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  renderTodoList();
+};
+
+const undoLastTodoAction = () => {
+  const previous = todoHistory.pop();
+  if (!previous) {
+    return;
+  }
+  todos = previous.todos || [];
+  renderTodoList();
 };
 
 // ========================
@@ -259,7 +554,7 @@ const loadGoogleSheetData = async (fileId, sheetName) => {
 
     if (values.length === 0) {
       normalizeRows([], []);
-      renderTable([]);
+      visibleRows = [];
       updateSummary(0, 0);
       return;
     }
@@ -278,7 +573,7 @@ const loadGoogleSheetData = async (fileId, sheetName) => {
     normalizeRows(rawHeaders, jsonRows);
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } catch (error) {
     console.error("Error loading Google sheet data:", error);
@@ -348,6 +643,7 @@ const normalizeRows = (rawHeaders, dataRows) => {
       values: headers.map((header) => data[header] ?? ""),
     };
   });
+  visibleRows = parsedRows;
 };
 
 const parseCsv = (content) => {
@@ -375,70 +671,13 @@ const parseCsv = (content) => {
   return { headers: rawHeaders, rows: dataRows };
 };
 
-const renderCards = (data) => {
-  cardList.innerHTML = "";
-
-  if (!data.length) {
-    cardList.innerHTML = '<div class="card-empty">Carregue um arquivo para visualizar os itens.</div>';
-    return;
-  }
-
-  data.forEach((row) => {
-    const description =
-      getValueFromRow(row, ["Descrição", "Descricao"]) || "—";
-    const cost = 
-      getValueFromRow(row, ["Custo", "CUSTO", "Custo Unitário"]) || 
-      getValueFromRow(row, ["Custo da última compra", "Custo da última Compra"]) || 
-      "—";
-    const averageCost =
-      getValueFromRow(row, ["CUSTO_MEDIO", "Custo Medio", "Custo Médio", "CUSTO_MEDIO_AJUSTADO"]) ||
-      "—";
-    const stock =
-      getValueFromRow(row, ["Estoque", "ESTOQUE", "QUANTIDADE_ESTOQUE", "Quantidade"]) ||
-      "—";
-
-    const card = document.createElement("article");
-    card.className = "mobile-card";
-
-    card.innerHTML = `
-      <div class="mobile-card__main">
-        <span class="mobile-card__label">Descrição</span>
-        <p class="mobile-card__value">${description}</p>
-      </div>
-      <div class="mobile-card__meta">
-        <div>
-          <span class="mobile-card__label">Custo</span>
-          <p class="mobile-card__value mobile-card__value--emphasis">${cost}</p>
-        </div>
-        <div>
-          <span class="mobile-card__label">Custo Médio</span>
-          <p class="mobile-card__value">${averageCost}</p>
-        </div>
-        <div>
-          <span class="mobile-card__label">Estoque</span>
-          <p class="mobile-card__value">${stock}</p>
-        </div>
-      </div>
-    `;
-
-    cardList.appendChild(card);
-  });
-};
-
-const renderTable = (data) => {
-  if (!data.length || !headers.length) {
-    renderCards([]);
-    return;
-  }
-
-  renderCards(data);
-};
-
 const updateSummary = (total, filtered) => {
   resultSummary.textContent = total
     ? `${total} itens carregados`
     : "Nenhum arquivo carregado";
   filteredSummary.textContent = `${filtered} itens`;
+  syncTodosWithParsedRows(visibleRows);
+  renderTodoList();
 };
 
 const filterRows = () => {
@@ -446,7 +685,7 @@ const filterRows = () => {
   
   if (query === "") {
     // Show all rows if search is empty
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
     return;
   }
@@ -481,7 +720,7 @@ const filterRows = () => {
     );
   });
 
-  renderTable(filtered);
+  visibleRows = filtered;
   updateSummary(parsedRows.length, filtered.length);
 };
 
@@ -515,7 +754,7 @@ const loadSheet = (sheetName) => {
     saveToLocalStorage();
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } 
   // Otherwise load from stored data in localStorage
@@ -527,7 +766,7 @@ const loadSheet = (sheetName) => {
     saveToLocalStorage();
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   }
 };
@@ -547,7 +786,7 @@ const handleCsvFile = (file) => {
     searchInput.disabled = parsedRows.length === 0;
     searchInput.value = "";
 
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   };
 
@@ -611,7 +850,7 @@ const handleXlsxFile = (file) => {
       loadSheet(sheetNames[0]);
     } else {
       normalizeRows([], []);
-      renderTable([]);
+      visibleRows = [];
       updateSummary(0, 0);
       clearLocalStorage();
     }
@@ -619,6 +858,54 @@ const handleXlsxFile = (file) => {
 
   reader.readAsArrayBuffer(file);
 };
+
+todoUndoButton.addEventListener("click", () => {
+  undoLastTodoAction();
+});
+
+todoFilterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    todoFilter = button.dataset.todoFilter || "all";
+    todoFilterButtons.forEach((btn) => btn.classList.remove("chip--active"));
+    button.classList.add("chip--active");
+    renderTodoList();
+  });
+});
+
+todoList.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const action = target.dataset.action;
+  if (!action) {
+    return;
+  }
+  const item = target.closest(".todo__item");
+  if (!item) {
+    return;
+  }
+  const id = item.dataset.id;
+  if (!id) {
+    return;
+  }
+
+  if (action === "done") {
+    updateTodo(id, { status: TODO_STATUS.DONE }, "Marcar como Done");
+    return;
+  }
+
+  if (action === "pending") {
+    updateTodo(id, { status: TODO_STATUS.PENDING }, "Marcar como Pending");
+    return;
+  }
+
+  if (action === "archived") {
+    updateTodo(id, { status: TODO_STATUS.ARCHIVED }, "Marcar como Archived");
+    return;
+  }
+
+});
 
 csvInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -653,6 +940,17 @@ searchInput.addEventListener("input", filterRows);
 
 // Restore data from localStorage on page load
 const initializeApp = () => {
+  const hasTodoState = loadTodoState();
+  if (hasTodoState) {
+    const activeButton =
+      todoFilterButtons.find((button) => button.dataset.todoFilter === todoFilter) ||
+      todoFilterButtons[0];
+    todoFilterButtons.forEach((button) => button.classList.remove("chip--active"));
+    if (activeButton) {
+      activeButton.classList.add("chip--active");
+    }
+  }
+
   const hasStoredData = loadFromLocalStorage();
   if (hasStoredData && parsedRows.length > 0) {
     searchInput.disabled = false;
@@ -679,10 +977,11 @@ const initializeApp = () => {
       resetSheetSelector();
     }
     
-    renderTable(parsedRows);
+    visibleRows = parsedRows;
     updateSummary(parsedRows.length, parsedRows.length);
   } else {
-    renderTable([]);
+    visibleRows = [];
+    updateSummary(0, 0);
   }
 
   // Initialize Google integration (kept but hidden from UI)
