@@ -19,6 +19,7 @@ const todoHistoryLabel = document.getElementById("todoHistoryLabel");
 const todoFilterButtons = Array.from(
   document.querySelectorAll("[data-todo-filter]")
 );
+const todoSection = document.getElementById("todoSection");
 
 let parsedRows = [];
 let headers = [];
@@ -39,6 +40,9 @@ let visibleRows = [];
 
 const STORAGE_KEY = "minimercado_spreadsheet_data";
 const TODO_STORAGE_KEY = "minimercado_todo_state";
+
+const isStockConsultationSheet = (sheetName = currentSheetName) =>
+  normalizeTodoText(sheetName).includes("estoque");
 
 const saveToLocalStorage = () => {
   const data = {
@@ -109,6 +113,7 @@ const saveTodoState = () => {
     todos,
     history: todoHistory,
     filter: todoFilter,
+    sheetName: currentSheetName,
     timestamp: new Date().toISOString(),
   };
   try {
@@ -125,6 +130,12 @@ const loadTodoState = () => {
       return false;
     }
     const data = JSON.parse(stored);
+    const storedSheet = data.sheetName || null;
+
+    if (storedSheet && currentSheetName && storedSheet !== currentSheetName) {
+      return false;
+    }
+
     todos = data.todos || [];
     todoHistory = data.history || [];
     todoFilter = data.filter || "all";
@@ -297,6 +308,19 @@ const buildSheetFields = (row) => {
 };
 
 const syncTodosWithParsedRows = (rows = parsedRows) => {
+  const isConsultation = isStockConsultationSheet();
+
+  if (todoSection) {
+    todoSection.hidden = isConsultation;
+  }
+
+  if (isConsultation) {
+    todos = [];
+    todoHistory = [];
+    saveTodoState();
+    return;
+  }
+
   if (!rows.length) {
     todos = [];
     return;
@@ -309,14 +333,15 @@ const syncTodosWithParsedRows = (rows = parsedRows) => {
   );
 
   const sheetTodos = rows
-    .map((row, index) =>
-      getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim()
-    )
-    .filter(Boolean)
-    .map((description, index) => {
+    .map((row, index) => {
+      const description = getValueFromRow(row, ["Descrição", "Descricao", "DESCRICAO"]).trim();
+      return { row, index, description };
+    })
+    .filter((item) => item.description)
+    .map(({ row, index, description }) => {
       const sourceId = buildTodoId(description, index);
       const existing = existingSheetTodos.get(sourceId);
-      const fields = buildSheetFields(rows[index]);
+      const fields = buildSheetFields(row);
       return {
         id: existing?.id || sourceId,
         sourceId,
@@ -545,6 +570,8 @@ const loadGoogleSheet = async (fileId, sheetName = null) => {
 
 const loadGoogleSheetData = async (fileId, sheetName) => {
   try {
+    currentSheetName = sheetName;
+
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: fileId,
       range: `'${sheetName}'`,
@@ -677,7 +704,9 @@ const updateSummary = (total, filtered) => {
     : "Nenhum arquivo carregado";
   filteredSummary.textContent = `${filtered} itens`;
   syncTodosWithParsedRows(visibleRows);
-  renderTodoList();
+  if (!isStockConsultationSheet()) {
+    renderTodoList();
+  }
 };
 
 const filterRows = () => {
@@ -781,6 +810,7 @@ const handleCsvFile = (file) => {
       parsed.rows.map((row) => row.data)
     );
 
+    currentSheetName = null;
     saveToLocalStorage();
     resetSheetSelector();
     searchInput.disabled = parsedRows.length === 0;
@@ -940,6 +970,8 @@ searchInput.addEventListener("input", filterRows);
 
 // Restore data from localStorage on page load
 const initializeApp = () => {
+  const hasStoredData = loadFromLocalStorage();
+
   const hasTodoState = loadTodoState();
   if (hasTodoState) {
     const activeButton =
@@ -951,7 +983,6 @@ const initializeApp = () => {
     }
   }
 
-  const hasStoredData = loadFromLocalStorage();
   if (hasStoredData && parsedRows.length > 0) {
     searchInput.disabled = false;
     
