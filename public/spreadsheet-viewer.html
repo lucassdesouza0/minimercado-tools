@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniMercado - Leitor de Planilha</title>
+    <link rel="stylesheet" href="spreadsheet-viewer.css" />
+  </head>
+  <body>
+    <main class="viewer-page">
+      <header class="viewer-header">
+        <div>
+          <p class="viewer-eyebrow">MiniMercado Tools</p>
+          <h1>Leitor de planilha (XLSX)</h1>
+          <p class="viewer-subtitle">
+            Carregue um arquivo Excel, escolha os cabeçalhos desejados e visualize os itens em
+            uma lista rolável.
+          </p>
+        </div>
+        <div class="viewer-header__actions">
+          <a class="viewer-link" href="./index.html">Voltar ao app principal</a>
+          <label class="file-input" for="spreadsheetFile">
+            <input id="spreadsheetFile" type="file" accept=".xlsx,.xls" />
+            <span>Selecionar planilha</span>
+          </label>
+        </div>
+      </header>
+
+      <section class="viewer-panel">
+        <h2>Cabeçalhos disponíveis</h2>
+        <p id="headerHelper" class="helper-text">
+          Nenhuma planilha carregada ainda.
+        </p>
+        <div id="headersContainer" class="headers-grid"></div>
+      </section>
+
+      <section class="viewer-panel">
+        <div class="results-header">
+          <h2>Itens da planilha</h2>
+          <span id="resultSummary" class="summary">0 itens</span>
+        </div>
+        <div class="search-bar">
+          <label for="searchInput">Buscar item</label>
+          <input id="searchInput" type="search" placeholder="Digite para filtrar automaticamente..." />
+        </div>
+        <div id="itemsContainer" class="items-container"></div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="spreadsheet-viewer.js"></script>
+  </body>
+</html>
