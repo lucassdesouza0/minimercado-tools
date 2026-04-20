@@ -92,6 +92,39 @@ h2 {
   display: none;
 }
 
+
+.headers-collapse {
+  border: 1px solid #dfe4f3;
+  border-radius: 12px;
+  background: #fafbff;
+}
+
+.headers-collapse__summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  padding: 12px 14px;
+  color: #2b3245;
+}
+
+.headers-collapse__summary::-webkit-details-marker {
+  display: none;
+}
+
+.headers-collapse__summary::after {
+  content: "▾";
+  float: right;
+  color: #5d6680;
+}
+
+.headers-collapse[open] .headers-collapse__summary::after {
+  content: "▴";
+}
+
+.headers-collapse__content {
+  padding: 0 14px 14px;
+}
+
 .helper-text {
   margin: 0 0 12px;
   font-size: 14px;
@@ -205,4 +238,14 @@ h2 {
   text-align: center;
   color: #5d6680;
   background: #fff;
+}
+
+@media (max-width: 768px) {
+  .viewer-page {
+    padding: 20px 12px 28px;
+  }
+
+  .headers-grid {
+    grid-template-columns: 1fr;
+  }
 }

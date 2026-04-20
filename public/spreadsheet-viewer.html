@@ -27,11 +27,17 @@
       </header>
 
       <section class="viewer-panel">
-        <h2>Cabeçalhos disponíveis</h2>
-        <p id="headerHelper" class="helper-text">
-          Nenhuma planilha carregada ainda.
-        </p>
-        <div id="headersContainer" class="headers-grid"></div>
+        <details class="headers-collapse" id="headersCollapse">
+          <summary class="headers-collapse__summary">
+            <span>Cabeçalhos disponíveis</span>
+          </summary>
+          <div class="headers-collapse__content">
+            <p id="headerHelper" class="helper-text">
+              Nenhuma planilha carregada ainda.
+            </p>
+            <div id="headersContainer" class="headers-grid"></div>
+          </div>
+        </details>
       </section>
 
       <section class="viewer-panel">

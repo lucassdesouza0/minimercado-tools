@@ -4,8 +4,10 @@ const headersContainer = document.getElementById("headersContainer");
 const itemsContainer = document.getElementById("itemsContainer");
 const headerHelper = document.getElementById("headerHelper");
 const resultSummary = document.getElementById("resultSummary");
+const headersCollapse = document.getElementById("headersCollapse");
 
 const STORAGE_KEY = "minimercado_spreadsheet_viewer_state";
+const MAX_TEXT_LENGTH = 25;
 
 let rows = [];
 let headers = [];
@@ -17,6 +19,14 @@ const formatValue = (value) => {
     return "—";
   }
   return String(value);
+};
+
+const truncateText = (value) => {
+  const text = String(value || "");
+  if (text.length <= MAX_TEXT_LENGTH) {
+    return text;
+  }
+  return `${text.slice(0, MAX_TEXT_LENGTH)}...`;
 };
 
 const normalizeText = (value) =>
@@ -97,8 +107,8 @@ const renderItems = () => {
       const field = document.createElement("div");
       field.className = "item-field";
       field.innerHTML = `
-        <span class="item-field__label">${header}</span>
-        <span class="item-field__value">${formatValue(row[header])}</span>
+        <span class="item-field__label">${truncateText(header)}</span>
+        <span class="item-field__value">${truncateText(formatValue(row[header]))}</span>
       `;
       grid.appendChild(field);
     });
@@ -150,7 +160,7 @@ const renderHeaderSelector = () => {
     });
 
     const labelText = document.createElement("span");
-    labelText.textContent = header;
+    labelText.textContent = truncateText(header);
 
     wrapper.appendChild(checkbox);
     wrapper.appendChild(labelText);
@@ -219,6 +229,15 @@ const readWorkbookFile = async (file) => {
   }
 };
 
+const setupHeaderCollapse = () => {
+  if (!headersCollapse) {
+    return;
+  }
+
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  headersCollapse.open = !isMobile;
+};
+
 const restoreState = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -257,4 +276,5 @@ searchInput.addEventListener("input", (event) => {
   renderItems();
 });
 
+setupHeaderCollapse();
 restoreState();
