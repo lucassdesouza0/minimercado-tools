@@ -12,15 +12,36 @@
         background: #f7f7fb;
         color: #1c1f2a;
       }
-      a {
-        color: #3845a1;
+
+      .home-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .home-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border: 1px solid #cdd5ee;
+        border-radius: 12px;
+        padding: 10px 16px;
+        background: #eef2ff;
+        color: #2f3b59;
         font-weight: 600;
+      }
+
+      .home-button:hover {
+        background: #e2e8ff;
       }
     </style>
   </head>
   <body>
     <p>Abra o app do MiniMercado Tools diretamente:</p>
-    <p><a href="./public/index.html">Ir para o app</a></p>
-    <p><a href="./public/spreadsheet-viewer.html">Ir para leitor de planilha</a></p>
+    <div class="home-actions">
+      <a class="home-button" href="./public/index.html">Ir para o app</a>
+      <a class="home-button" href="./public/spreadsheet-viewer.html">Leitor de planilha</a>
+    </div>
   </body>
 </html>
