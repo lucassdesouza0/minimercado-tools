@@ -5,6 +5,7 @@ const itemsContainer = document.getElementById("itemsContainer");
 const headerHelper = document.getElementById("headerHelper");
 const resultSummary = document.getElementById("resultSummary");
 const headersCollapse = document.getElementById("headersCollapse");
+const invertOrderToggle = document.getElementById("invertOrderToggle");
 
 const STORAGE_KEY = "minimercado_spreadsheet_viewer_state";
 const MAX_TEXT_LENGTH = 25;
@@ -13,6 +14,7 @@ let rows = [];
 let headers = [];
 let selectedHeaders = [];
 let searchTerm = "";
+let invertOrder = false;
 
 const formatValue = (value) => {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -41,6 +43,7 @@ const saveState = () => {
       headers,
       rows,
       selectedHeaders,
+      invertOrder,
       savedAt: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -86,8 +89,9 @@ const renderItems = () => {
   }
 
   const filteredRows = getFilteredRows();
+  const rowsForDisplay = invertOrder ? [...filteredRows].reverse() : filteredRows;
 
-  if (!filteredRows.length) {
+  if (!rowsForDisplay.length) {
     itemsContainer.innerHTML =
       '<div class="empty-state">Nenhum item encontrado com o filtro informado.</div>';
     updateSummary(0);
@@ -96,7 +100,7 @@ const renderItems = () => {
 
   const fragment = document.createDocumentFragment();
 
-  filteredRows.forEach((row) => {
+  rowsForDisplay.forEach((row) => {
     const card = document.createElement("article");
     card.className = "item-card";
 
@@ -118,7 +122,7 @@ const renderItems = () => {
   });
 
   itemsContainer.appendChild(fragment);
-  updateSummary(filteredRows.length);
+  updateSummary(rowsForDisplay.length);
 };
 
 const updateHeaderHelper = () => {
@@ -242,6 +246,9 @@ const restoreState = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
+      if (invertOrderToggle) {
+        invertOrderToggle.checked = false;
+      }
       renderHeaderSelector();
       renderItems();
       return;
@@ -250,6 +257,11 @@ const restoreState = () => {
     const parsed = JSON.parse(stored);
     headers = Array.isArray(parsed.headers) ? parsed.headers : [];
     rows = Array.isArray(parsed.rows) ? parsed.rows : [];
+    invertOrder = Boolean(parsed.invertOrder);
+
+    if (invertOrderToggle) {
+      invertOrderToggle.checked = invertOrder;
+    }
 
     const persistedSelection = Array.isArray(parsed.selectedHeaders)
       ? parsed.selectedHeaders.filter((header) => headers.includes(header))
@@ -275,6 +287,14 @@ searchInput.addEventListener("input", (event) => {
   searchTerm = event.target.value || "";
   renderItems();
 });
+
+if (invertOrderToggle) {
+  invertOrderToggle.addEventListener("change", (event) => {
+    invertOrder = Boolean(event.target.checked);
+    saveState();
+    renderItems();
+  });
+}
 
 setupHeaderCollapse();
 restoreState();
